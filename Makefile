@@ -6,6 +6,7 @@ THEOS_DEVICE_IP = localhost -p 2222
 INSTALL_TARGET_PROCESSES = SpringBoard
 TARGET ?= iphone:clang:latest:15.0
 PACKAGE_VERSION = 4.2.3
+XCODE_SWIFT_LIB = $(dir $(shell xcrun --sdk iphoneos -f swiftc))../lib/swift/iphoneos
 
 Dodo_SWIFTFLAGS = -ISources/DodoC/include
 
@@ -30,7 +31,8 @@ Dodo_PRIVATE_FRAMEWORKS = SpringBoard SpringBoardServices SpringBoardFoundation 
 Dodo_FILES = $(shell find Sources/Dodo -name '*.swift') $(shell find Sources/DodoC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
 Dodo_CFLAGS += -fobjc-arc -ISources/DodoC/include
 Dodo_LDFLAGS += -F$(THEOS)/private-sdks/iPhoneOS15.6.sdk/System/Library/PrivateFrameworks
-Dodo_LIBRARIES += roothide
+Dodo_LDFLAGS += -L$(XCODE_SWIFT_LIB)
+Dodo_LIBRARIES += roothide swiftUIKit
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 SUBPROJECTS += dodo
