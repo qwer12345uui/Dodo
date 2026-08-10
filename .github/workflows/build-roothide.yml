@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   issues: write
+  pull-requests: write
 
 jobs:
   build:
@@ -21,24 +22,27 @@ jobs:
       - name: Checkout Dodo
         uses: actions/checkout@v4
 
-      - name: Install build tools
-        run: |
-          brew install make ldid
-          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
-
-      - name: Install RootHide Theos
-        run: |
-          git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/roothide/theos.git "$THEOS"
-          test -f "$THEOS/vendor/include/roothide.h"
-          test -f "$THEOS/vendor/lib/libroothide.tbd"
-
-      - name: Build RootHide deb
+      - name: Prepare toolchain and build RootHide deb
         id: build
         shell: bash
         run: |
           set -o pipefail
-          chmod +x ci/build-roothide.sh
-          ci/build-roothide.sh 2>&1 | tee "$RUNNER_TEMP/dodo-build.log"
+          {
+            echo "== Install build tools =="
+            brew install make
+            brew list ldid >/dev/null 2>&1 || brew install ldid
+            export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
+            echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+
+            echo "== Install RootHide Theos =="
+            git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/roothide/theos.git "$THEOS"
+            test -f "$THEOS/vendor/include/roothide.h"
+            test -f "$THEOS/vendor/lib/libroothide.tbd"
+
+            echo "== Build =="
+            chmod +x ci/build-roothide.sh
+            ci/build-roothide.sh
+          } 2>&1 | tee "$RUNNER_TEMP/dodo-build.log"
 
       - name: Upload build log
         if: always()
@@ -69,16 +73,14 @@ jobs:
             RootHide / iOS 15 test build.
 
             Fixes included:
-            - Prevents the notification-list mask from passing NaN/Inf values to Core Animation during lock-screen pull-down transitions.
-            - Restores media controls by loading theme files with `UIImage(contentsOfFile:)` and adds SF Symbol fallbacks.
-            - Adds dynamic `jbroot()` path conversion instead of a fixed `/var/jb` path.
-            - Corrects Simplified Chinese localization discovery (`zh-Hans.lproj`).
-            - Avoids duplicate hosting-controller constraints and guards Darwin notification callbacks.
-
-            Install only on a RootHide bootstrap and keep crash logs for testing.
+            - Prevents invalid Core Animation mask coordinates during lock-screen pull-down transitions.
+            - Restores media controls with filesystem loading and SF Symbol fallbacks.
+            - Uses dynamic RootHide `jbroot()` resource paths.
+            - Corrects Simplified Chinese localization discovery.
+            - Avoids duplicate hosting constraints and guards Darwin callbacks.
           files: packages/*.deb
 
-      - name: Report build failure
+      - name: Comment failure log on draft PR
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,8 +88,9 @@ jobs:
         run: |
           LOG="$RUNNER_TEMP/dodo-build.log"
           BODY="$RUNNER_TEMP/dodo-failure.md"
+          PR_NUMBER="$(gh pr list --repo "$GITHUB_REPOSITORY" --head roothide-ios15 --state open --json number --jq '.[0].number // empty')"
           {
-            echo "RootHide build failed on commit \`${GITHUB_SHA}\`."
+            echo "RootHide CI failed on commit \`${GITHUB_SHA}\`."
             echo
             echo "<details><summary>Last 300 log lines</summary>"
             echo
@@ -96,7 +99,8 @@ jobs:
             echo '```'
             echo "</details>"
           } > "$BODY"
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "RootHide CI failed: ${GITHUB_SHA:0:7}" \
-            --body-file "$BODY" || true
+          if [[ -n "$PR_NUMBER" ]]; then
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$BODY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "RootHide CI failed: ${GITHUB_SHA:0:7}" --body-file "$BODY"
+          fi
