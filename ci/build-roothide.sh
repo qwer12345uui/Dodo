@@ -53,19 +53,30 @@ SWIFT
 copy_framework() {
     local name="$1"
     local source=""
+    local safe_copy="$DEPS_DIR/.framework-cache/$name.framework"
+
     source="$(find "$THEOS/lib" "$DEPS_DIR" -type d -name "$name.framework" ! -path '*dSYM*' 2>/dev/null | head -n 1 || true)"
     if [[ -z "$source" ]]; then
         echo "ERROR: $name.framework was not produced"
-        find "$DEPS_DIR" -maxdepth 6 -name '*.framework' -print || true
+        find "$DEPS_DIR" -maxdepth 8 -name '*.framework' -print || true
         exit 1
     fi
+
     echo "Using $name framework: $source"
-    rm -rf "$THEOS/lib/$name.framework" "$THEOS/lib/iphone/roothide/$name.framework" "$ROOT_DIR/Layout/Library/Frameworks/$name.framework"
-    cp -R "$source" "$THEOS/lib/$name.framework"
-    cp -R "$source" "$THEOS/lib/iphone/roothide/$name.framework"
-    cp -R "$source" "$ROOT_DIR/Layout/Library/Frameworks/$name.framework"
-    otool -D "$source/$name" || true
-    otool -L "$source/$name" || true
+    rm -rf "$safe_copy"
+    mkdir -p "$(dirname "$safe_copy")"
+    cp -R "$source" "$safe_copy"
+
+    rm -rf \
+        "$THEOS/lib/$name.framework" \
+        "$THEOS/lib/iphone/roothide/$name.framework" \
+        "$ROOT_DIR/Layout/Library/Frameworks/$name.framework"
+    cp -R "$safe_copy" "$THEOS/lib/$name.framework"
+    cp -R "$safe_copy" "$THEOS/lib/iphone/roothide/$name.framework"
+    cp -R "$safe_copy" "$ROOT_DIR/Layout/Library/Frameworks/$name.framework"
+
+    otool -D "$safe_copy/$name" || true
+    otool -L "$safe_copy/$name" || true
 }
 
 build_xcode_framework() {
@@ -95,11 +106,14 @@ if [[ -z "$ORION_SOURCE" ]]; then
     echo "ERROR: RootHide Orion.framework not found"
     exit 1
 fi
+ORION_CACHE="$DEPS_DIR/.framework-cache/Orion.framework"
+rm -rf "$ORION_CACHE"
+cp -R "$ORION_SOURCE" "$ORION_CACHE"
 rm -rf "$THEOS/lib/Orion.framework" "$THEOS/lib/iphone/roothide/Orion.framework" "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
-cp -R "$ORION_SOURCE" "$THEOS/lib/Orion.framework"
-cp -R "$ORION_SOURCE" "$THEOS/lib/iphone/roothide/Orion.framework"
-cp -R "$ORION_SOURCE" "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
-otool -D "$ORION_SOURCE/Orion" || true
+cp -R "$ORION_CACHE" "$THEOS/lib/Orion.framework"
+cp -R "$ORION_CACHE" "$THEOS/lib/iphone/roothide/Orion.framework"
+cp -R "$ORION_CACHE" "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
+otool -D "$ORION_CACHE/Orion" || true
 
 echo "== Build Dodo RootHide package =="
 cd "$ROOT_DIR"
