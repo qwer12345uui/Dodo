@@ -20,6 +20,8 @@ dodo_FILES = $(shell find Sources/dodo -name '*.swift') $(shell find Sources/dod
 dodo_SWIFTFLAGS += -ISources/dodoC/include
 dodo_INSTALL_PATH = /Library/PreferenceBundles
 dodo_CFLAGS += -fobjc-arc
+# Resolve bundled frameworks at runtime via the per-Mach-O .jbroot symlink.
+dodo_LDFLAGS += -rpath @loader_path/.jbroot/Library/Frameworks -rpath /Library/Frameworks
 dodo_LIBRARIES += roothide
 
 include $(THEOS_MAKE_PATH)/bundle.mk

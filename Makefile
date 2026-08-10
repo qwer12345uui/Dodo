@@ -32,6 +32,8 @@ Dodo_FILES = $(shell find Sources/Dodo -name '*.swift') $(shell find Sources/Dod
 Dodo_CFLAGS += -fobjc-arc -ISources/DodoC/include
 Dodo_LDFLAGS += -F$(THEOS)/private-sdks/iPhoneOS15.6.sdk/System/Library/PrivateFrameworks
 Dodo_LDFLAGS += -L$(XCODE_SWIFT_LIB)
+# Resolve bundled frameworks at runtime via the per-Mach-O .jbroot symlink.
+Dodo_LDFLAGS += -rpath @loader_path/.jbroot/Library/Frameworks -rpath /Library/Frameworks
 Dodo_LIBRARIES += roothide swiftUIKit
 
 include $(THEOS_MAKE_PATH)/tweak.mk

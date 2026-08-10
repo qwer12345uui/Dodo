@@ -110,20 +110,34 @@ build_xcode_framework GSCore "$DEPS_DIR/GSCore" GSCORE_INSTALL_PATH MOVE_TO_THEO
 build_xcode_framework Comet "$DEPS_DIR/Comet" COMET_INSTALL_PATH MOVE_TO_THEOS_PATH
 build_xcode_framework GSWeather "$DEPS_DIR/GSWeather" GSWEATHER_INSTALL_PATH MOVE_TO_THEOS_PATH
 
-# The RootHide Theos fork ships a pre-patched Orion framework in vendor/lib.
-ORION_SOURCE="$(find "$THEOS/vendor/lib" "$THEOS/lib" -type d -name 'Orion.framework' ! -path '*rootless*' 2>/dev/null | head -n 1 || true)"
-if [[ -z "$ORION_SOURCE" ]]; then
-    echo "ERROR: RootHide Orion.framework not found"
+echo "== Build Orion runtime framework for RootHide =="
+# vendor/lib only ships Orion link stubs (Orion.tbd without a binary, and the
+# iphone/roothide variant uses relative symlinks that break once copied).
+# Build the real runtime framework from the pinned theos/orion submodule.
+make -C "$THEOS/vendor/orion" package \
+    THEOS_PACKAGE_SCHEME=roothide \
+    ROOTHIDE=1 ROOTLESS=0 FINALPACKAGE=1 \
+    -j"$NCPU"
+
+ORION_RUNTIME="$THEOS/vendor/orion/.theos/_/Library/Frameworks/Orion.framework"
+if [[ ! -x "$ORION_RUNTIME/Orion" ]]; then
+    echo "ERROR: Orion runtime framework was not produced"
+    find "$THEOS/vendor/orion" -name '*.framework' -print || true
     exit 1
 fi
-ORION_CACHE="$DEPS_DIR/.framework-cache/Orion.framework"
-rm -rf "$ORION_CACHE"
-cp -R "$ORION_SOURCE" "$ORION_CACHE"
-rm -rf "$THEOS/lib/Orion.framework" "$THEOS/lib/iphone/roothide/Orion.framework" "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
-cp -R "$ORION_CACHE" "$THEOS/lib/Orion.framework"
-cp -R "$ORION_CACHE" "$THEOS/lib/iphone/roothide/Orion.framework"
-cp -R "$ORION_CACHE" "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
-otool -D "$ORION_CACHE/Orion" || true
+otool -D "$ORION_RUNTIME/Orion" || true
+otool -L "$ORION_RUNTIME/Orion" || true
+
+# Link stubs: use the self-contained top-level vendor stub (real files only,
+# no symlinks) so packaging never trips over broken links.
+ORION_STUB="$THEOS/vendor/lib/Orion.framework"
+rm -rf "$THEOS/lib/Orion.framework" "$THEOS/lib/iphone/roothide/Orion.framework"
+cp -R "$ORION_STUB" "$THEOS/lib/Orion.framework"
+cp -R "$ORION_STUB" "$THEOS/lib/iphone/roothide/Orion.framework"
+
+# Ship the real Orion runtime inside the package.
+rm -rf "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
+cp -R "$ORION_RUNTIME" "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
 
 echo "== Build Dodo RootHide package =="
 cd "$ROOT_DIR"
@@ -137,4 +151,7 @@ make package \
 
 echo "== Validate output =="
 ls -lah packages/*.deb
-find .theos -type f \( -name 'Dodo.dylib' -o -name 'dodo' \) -print -exec otool -L {} \; || true
+find .theos -type f \( -name 'Dodo.dylib' -o -name 'dodo' \) -print | while read -r bin; do
+    otool -L "$bin" || true
+    otool -l "$bin" | grep -A 2 LC_RPATH || true
+done
