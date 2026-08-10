@@ -1,0 +1,112 @@
+name: Build Dodo RootHide
+
+on:
+  push:
+    branches:
+      - roothide-ios15
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      THEOS: ${{ github.workspace }}/theos
+
+    steps:
+      - name: Checkout Dodo
+        uses: actions/checkout@v4
+
+      - name: Prepare toolchain and build RootHide deb
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            echo "== Install build tools =="
+            brew install make
+            brew list ldid >/dev/null 2>&1 || brew install ldid
+            export PATH="$(brew --prefix make)/libexec/gnubin:$PATH"
+            echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+
+            echo "== Install RootHide Theos =="
+            git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/roothide/theos.git "$THEOS"
+            test -f "$THEOS/vendor/include/roothide.h"
+            test -f "$THEOS/vendor/lib/libroothide.tbd"
+
+            echo "== Build =="
+            chmod +x ci/build-roothide.sh
+            ci/build-roothide.sh
+          } 2>&1 | tee "$RUNNER_TEMP/dodo-build.log"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dodo-roothide-build-log-${{ github.run_number }}
+          path: ${{ runner.temp }}/dodo-build.log
+          if-no-files-found: warn
+
+      - name: Upload deb
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dodo-4.2.3-RootHide-iOS15
+          path: packages/*.deb
+          if-no-files-found: error
+
+      - name: Publish prerelease
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v4.2.3-roothide-${{ github.run_number }}
+          name: Dodo 4.2.3 RootHide (iOS 15)
+          target_commitish: roothide-ios15
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            RootHide / iOS 15 test build.
+
+            Install order (RootHide device):
+            1. Keep the working RootHide builds of com.ginsu.comet and dev.theos.orion14 already installed.
+            2. Install the included com.ginsu.gscore and com.ginsu.gsweather RootHide debs.
+            3. Install com.ginsu.dodo, then respring.
+
+            Fixes included:
+            - Prevents invalid Core Animation mask coordinates during lock-screen pull-down transitions.
+            - Restores media controls with filesystem loading and SF Symbol fallbacks.
+            - Uses dynamic RootHide jbroot()/.jbroot resource paths.
+            - Corrects Simplified Chinese localization discovery.
+            - Frameworks are proper package dependencies again (no bundled copies, no dpkg conflicts).
+            - Bundled frameworks use canonical RootHide @loader_path/.jbroot install names.
+          files: packages/*.deb
+
+      - name: Comment failure log on draft PR
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          LOG="$RUNNER_TEMP/dodo-build.log"
+          BODY="$RUNNER_TEMP/dodo-failure.md"
+          PR_NUMBER="$(gh pr list --repo "$GITHUB_REPOSITORY" --head roothide-ios15 --state open --json number --jq '.[0].number // empty')"
+          {
+            echo "RootHide CI failed on commit \`${GITHUB_SHA}\`."
+            echo
+            echo "<details><summary>Last 300 log lines</summary>"
+            echo
+            echo '```text'
+            tail -n 300 "$LOG" 2>/dev/null || echo "No build log was produced."
+            echo '```'
+            echo "</details>"
+          } > "$BODY"
+          if [[ -n "$PR_NUMBER" ]]; then
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$BODY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "RootHide CI failed: ${GITHUB_SHA:0:7}" --body-file "$BODY"
+          fi

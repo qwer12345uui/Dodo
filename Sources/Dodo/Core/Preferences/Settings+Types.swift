@@ -1,6 +1,6 @@
 //
 //  Settings+Types.swift
-//  
+//
 //
 //  Created by Noah Little on 7/4/2023.
 //
@@ -15,7 +15,7 @@ extension Settings {
         ? AndroBar().barHeight
         : 0
     }
-    
+
     struct MediaPlayer {
         let timeMediaPlayerStyle: TimeMediaPlayerStyle
         let playerStyle: MediaPlayerStyle
@@ -24,12 +24,12 @@ extension Settings {
         let isMarqueeLabels: Bool
         let themeName: String
         let isEnabledMediaBackdrop: Bool
-        
+
         var themePath: String {
-            "/Library/Application Support/Dodo/Themes/\(themeName)/".rootify
+            "/Library/Application Support/Dodo/Themes/\(themeName)/".dodoRootPath
         }
     }
-    
+
     struct Appearance {
         let selectedFont: FontType
         let timeFontSize: Double
@@ -37,13 +37,13 @@ extension Settings {
         let weatherFontSize: Double
         let hasChargingFlash: Bool
     }
-    
+
     struct TimeDate {
         let timeTemplate: DateTemplate
         let dateTemplate: DateTemplate
         let isEnabled24HourMode: Bool
     }
-    
+
     struct FavouriteApps {
         let hasFavouriteApps: Bool
         let favouriteAppBundleIdentifiers: [String]
@@ -54,7 +54,7 @@ extension Settings {
         let favouriteAppsFixedGridItemSize: Double
         let favouriteAppsFixedGridColumnAmount: Int
     }
-    
+
     struct Weather {
         let showWeather: Bool
         let isActiveWeatherAutomaticRefresh: Bool
@@ -62,7 +62,7 @@ extension Settings {
         let isVisibleHighLow: Bool
         let isVisibleSunriseSunset: Bool
     }
-    
+
     struct StatusItems {
         let hasStatusItems: Bool
         let isVisibleWhenDisabled: Bool
@@ -77,7 +77,7 @@ extension Settings {
         let hasFlashlightIcon: Bool
         let hasTimerIcon: Bool
     }
-    
+
     struct Colors {
         let timeColor: UIColor
         let dateColor: UIColor
@@ -91,27 +91,24 @@ extension Settings {
         let mutedIconColor: UIColor
         let secondsIconColor: UIColor
         let timerIconColor: UIColor
-                
-        /// Red
+
         static let batteryMinColor: UIColor = .systemRed
-        /// Yellow
         static let batteryMidColor: UIColor = .systemYellow
-        /// Green
         static let batteryMaxColor: UIColor = .systemGreen
     }
-    
+
     enum TimeMediaPlayerStyle: Int {
         case time
         case mediaPlayer
         case both
     }
-    
+
     enum FontType: Int {
         case `default`
         case monospaced
         case rounded
         case serif
-        
+
         var representedFont: Font.Design {
             switch self {
             case .default: return .default
@@ -121,17 +118,17 @@ extension Settings {
             }
         }
     }
-    
+
     enum GridSizeType: Int {
         case flexible = 0
         case fixed = 1
         case adaptive = 2
     }
-    
+
     enum MediaPlayerStyle: Int {
         case modular = 0
         case classic = 1
-        
+
         var cornerRadius: CGFloat {
             switch self {
             case .modular:
@@ -140,7 +137,7 @@ extension Settings {
                 return 0.0
             }
         }
-        
+
         var artworkRadius: CGFloat {
             switch self {
             case .modular:
@@ -150,14 +147,14 @@ extension Settings {
             }
         }
     }
-    
+
     enum StatusItem: CaseIterable, Identifiable {
         enum PresentationMode {
             case persistent
             case visibleWhenEnabled
             case visible
         }
-        
+
         case lockIcon
         case seconds
         case chargingIcon
@@ -167,7 +164,7 @@ extension Settings {
         case vibration
         case muted
         case flashlight
-        
+
         var id: Self { self }
 
         var isEnabled: Bool {
@@ -184,7 +181,7 @@ extension Settings {
             case .timer: return settings.hasTimerIcon
             }
         }
-        
+
         var enabledImageName: String? {
             switch self {
             case .lockIcon: return "lock.fill"
@@ -203,7 +200,7 @@ extension Settings {
             case .timer: return "timer"
             }
         }
-        
+
         var disabledImageName: String? {
             switch self {
             case .lockIcon: return "lock.open.fill"
@@ -217,13 +214,13 @@ extension Settings {
             case .timer: return enabledImageName
             }
         }
-        
+
         var enabledColor: UIColor? {
             let colors = PreferenceManager.shared.settings.colors
             switch self {
             case .lockIcon: return colors.lockIconColor
             case .seconds: return colors.secondsIconColor
-            case .chargingIcon: return nil // Determined in `StatusItemGroupView.ViewModel`
+            case .chargingIcon: return nil
             case .alarms: return colors.alarmIconColor
             case .dnd: return colors.dndIconColor
             case .vibration: return colors.vibrationIconColor
@@ -232,37 +229,27 @@ extension Settings {
             case .timer: return colors.timerIconColor
             }
         }
-        
+
         var disabledColor: UIColor? {
             switch self {
-            case .lockIcon,
-                 .seconds,
-                 .chargingIcon,
-                 .muted,
-                 .flashlight:
+            case .lockIcon, .seconds, .chargingIcon, .muted, .flashlight:
                 return enabledColor
             case .alarms, .dnd, .vibration, .timer:
                 return enabledColor?.withAlphaComponent(0.4)
             }
         }
-        
+
         var presentationMode: PresentationMode {
             switch self {
-            case .lockIcon,
-                 .seconds,
-                 .flashlight:
+            case .lockIcon, .seconds, .flashlight:
                 return .persistent
-            case .alarms,
-                .dnd,
-                .vibration,
-                .muted,
-                .timer:
+            case .alarms, .dnd, .vibration, .muted, .timer:
                 return .visible
             case .chargingIcon:
                 return .visibleWhenEnabled
             }
         }
-        
+
         func isVisible(isStatusEnabled: Bool) -> Bool {
             switch presentationMode {
             case .persistent:
@@ -274,7 +261,7 @@ extension Settings {
             }
         }
     }
-    
+
     enum WeatherTapAction: Int {
         case none
         case refresh
