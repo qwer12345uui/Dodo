@@ -29,7 +29,7 @@ TWEAK_NAME = Dodo
 Dodo_PRIVATE_FRAMEWORKS = SpringBoard SpringBoardServices SpringBoardFoundation MediaRemote MobileTimer SpringBoardUI CoverSheet WeatherFoundation
 Dodo_FILES = $(shell find Sources/Dodo -name '*.swift') $(shell find Sources/DodoC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
 Dodo_CFLAGS += -fobjc-arc -ISources/DodoC/include
-Dodo_LDFLAGS += -F$(THEOS)/sdks/iPhoneOS15.6.sdk/System/Library/PrivateFrameworks
+Dodo_LDFLAGS += -F$(THEOS)/private-sdks/iPhoneOS15.6.sdk/System/Library/PrivateFrameworks
 Dodo_LIBRARIES += roothide
 
 include $(THEOS_MAKE_PATH)/tweak.mk

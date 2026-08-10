@@ -6,22 +6,24 @@ DEPS_DIR="${RUNNER_TEMP:-/tmp}/dodo-roothide-deps"
 THEOS="${THEOS:-$ROOT_DIR/theos}"
 export THEOS
 NCPU="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+PRIVATE_SDK="$THEOS/private-sdks/iPhoneOS15.6.sdk"
 
 rm -rf "$DEPS_DIR"
-mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/roothide" "$THEOS/sdks" "$ROOT_DIR/Layout/Library/Frameworks"
+mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/roothide" "$THEOS/private-sdks" "$ROOT_DIR/Layout/Library/Frameworks"
 
 echo "== Toolchain =="
 xcodebuild -version
 swiftc --version
 clang --version | head -n 1
+xcrun --sdk iphoneos --show-sdk-path
 
-echo "== Install patched iOS 15.6 SDK =="
+echo "== Install private-framework stubs =="
 SDK_REPO="$DEPS_DIR/theos-sdks"
 git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git "$SDK_REPO"
 git -C "$SDK_REPO" sparse-checkout set iPhoneOS15.6.sdk
-rm -rf "$THEOS/sdks/iPhoneOS15.6.sdk"
-cp -R "$SDK_REPO/iPhoneOS15.6.sdk" "$THEOS/sdks/iPhoneOS15.6.sdk"
-find "$THEOS/sdks/iPhoneOS15.6.sdk" -path '*SpringBoard.framework*' -print | head
+rm -rf "$THEOS/sdks/iPhoneOS15.6.sdk" "$PRIVATE_SDK"
+cp -R "$SDK_REPO/iPhoneOS15.6.sdk" "$PRIVATE_SDK"
+find "$PRIVATE_SDK" -path '*SpringBoard.framework*' -print | head
 
 echo "== Fetch dependencies =="
 git clone --depth 1 https://github.com/ginsudev/GSCore.git "$DEPS_DIR/GSCore"
