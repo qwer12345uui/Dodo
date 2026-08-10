@@ -129,7 +129,8 @@ rm -rf .theos packages
 make package \
     ROOTHIDE=1 ROOTLESS=0 \
     THEOS_PACKAGE_SCHEME=roothide \
-    SDKVERSION=15.6 FINALPACKAGE=1 \
+    TARGET=iphone:clang:latest:15.0 \
+    FINALPACKAGE=1 \
     -j"$NCPU"
 
 echo "== Validate output =="
