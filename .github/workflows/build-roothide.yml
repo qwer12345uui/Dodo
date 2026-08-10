@@ -1,0 +1,102 @@
+name: Build Dodo RootHide
+
+on:
+  push:
+    branches:
+      - roothide-ios15
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      THEOS: ${{ github.workspace }}/theos
+
+    steps:
+      - name: Checkout Dodo
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          brew install make ldid
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+
+      - name: Install RootHide Theos
+        run: |
+          git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/roothide/theos.git "$THEOS"
+          test -f "$THEOS/vendor/include/roothide.h"
+          test -f "$THEOS/vendor/lib/libroothide.tbd"
+
+      - name: Build RootHide deb
+        id: build
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x ci/build-roothide.sh
+          ci/build-roothide.sh 2>&1 | tee "$RUNNER_TEMP/dodo-build.log"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dodo-roothide-build-log-${{ github.run_number }}
+          path: ${{ runner.temp }}/dodo-build.log
+          if-no-files-found: warn
+
+      - name: Upload deb
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dodo-4.2.3-RootHide-iOS15
+          path: packages/*.deb
+          if-no-files-found: error
+
+      - name: Publish prerelease
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v4.2.3-roothide-${{ github.run_number }}
+          name: Dodo 4.2.3 RootHide (iOS 15)
+          target_commitish: roothide-ios15
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            RootHide / iOS 15 test build.
+
+            Fixes included:
+            - Prevents the notification-list mask from passing NaN/Inf values to Core Animation during lock-screen pull-down transitions.
+            - Restores media controls by loading theme files with `UIImage(contentsOfFile:)` and adds SF Symbol fallbacks.
+            - Adds dynamic `jbroot()` path conversion instead of a fixed `/var/jb` path.
+            - Corrects Simplified Chinese localization discovery (`zh-Hans.lproj`).
+            - Avoids duplicate hosting-controller constraints and guards Darwin notification callbacks.
+
+            Install only on a RootHide bootstrap and keep crash logs for testing.
+          files: packages/*.deb
+
+      - name: Report build failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          LOG="$RUNNER_TEMP/dodo-build.log"
+          BODY="$RUNNER_TEMP/dodo-failure.md"
+          {
+            echo "RootHide build failed on commit \`${GITHUB_SHA}\`."
+            echo
+            echo "<details><summary>Last 300 log lines</summary>"
+            echo
+            echo '```text'
+            tail -n 300 "$LOG" 2>/dev/null || echo "No build log was produced."
+            echo '```'
+            echo "</details>"
+          } > "$BODY"
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "RootHide CI failed: ${GITHUB_SHA:0:7}" \
+            --body-file "$BODY" || true
