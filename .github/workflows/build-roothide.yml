@@ -72,12 +72,18 @@ jobs:
           body: |
             RootHide / iOS 15 test build.
 
+            Install order (RootHide device):
+            1. Keep the working RootHide builds of com.ginsu.comet and dev.theos.orion14 already installed.
+            2. Install the included com.ginsu.gscore and com.ginsu.gsweather RootHide debs.
+            3. Install com.ginsu.dodo, then respring.
+
             Fixes included:
             - Prevents invalid Core Animation mask coordinates during lock-screen pull-down transitions.
             - Restores media controls with filesystem loading and SF Symbol fallbacks.
-            - Uses dynamic RootHide `jbroot()` resource paths.
+            - Uses dynamic RootHide jbroot()/.jbroot resource paths.
             - Corrects Simplified Chinese localization discovery.
-            - Avoids duplicate hosting constraints and guards Darwin callbacks.
+            - Frameworks are proper package dependencies again (no bundled copies, no dpkg conflicts).
+            - Bundled frameworks use canonical RootHide @loader_path/.jbroot install names.
           files: packages/*.deb
 
       - name: Comment failure log on draft PR

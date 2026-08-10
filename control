@@ -6,4 +6,4 @@ Description: The perfect Lock Screen redesign, adapted for RootHide on iOS 15.
 Maintainer: Ginsu / RootHide adaptation by qwer12345uui
 Author: Ginsu
 Section: Tweaks
-Depends: firmware (>= 15.0), preferenceloader
+Depends: firmware (>= 15.0), preferenceloader, dev.theos.orion14, com.ginsu.comet, com.ginsu.gscore, com.ginsu.gsweather

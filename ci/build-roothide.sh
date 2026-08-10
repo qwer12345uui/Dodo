@@ -9,7 +9,7 @@ NCPU="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 PRIVATE_SDK="$THEOS/private-sdks/iPhoneOS15.6.sdk"
 
 rm -rf "$DEPS_DIR"
-mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/roothide" "$THEOS/private-sdks" "$ROOT_DIR/Layout/Library/Frameworks"
+mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/roothide" "$THEOS/private-sdks"
 
 echo "== Toolchain =="
 xcodebuild -version
@@ -77,13 +77,13 @@ copy_framework() {
     mkdir -p "$(dirname "$safe_copy")"
     cp -R "$source" "$safe_copy"
 
+    # Frameworks are distributed as their own debs; keep local copies only so
+    # Dodo can compile and link against them.
     rm -rf \
         "$THEOS/lib/$name.framework" \
-        "$THEOS/lib/iphone/roothide/$name.framework" \
-        "$ROOT_DIR/Layout/Library/Frameworks/$name.framework"
+        "$THEOS/lib/iphone/roothide/$name.framework"
     cp -R "$safe_copy" "$THEOS/lib/$name.framework"
     cp -R "$safe_copy" "$THEOS/lib/iphone/roothide/$name.framework"
-    cp -R "$safe_copy" "$ROOT_DIR/Layout/Library/Frameworks/$name.framework"
 
     otool -D "$safe_copy/$name" || true
     otool -L "$safe_copy/$name" || true
@@ -101,7 +101,7 @@ build_xcode_framework() {
         ROOTHIDE=1 ROOTLESS=0 FINALPACKAGE=1 \
         "$install_var=/Library/Frameworks" \
         "$move_var=$THEOS/lib/iphone/roothide/" \
-        "${name}_XCODEFLAGS=SWIFT_ACTIVE_COMPILATION_CONDITIONS=ROOTHIDE" \
+        "${name}_XCODEFLAGS=SWIFT_ACTIVE_COMPILATION_CONDITIONS=ROOTHIDE LD_DYLIB_INSTALL_NAME=@loader_path/.jbroot/Library/Frameworks/$name.framework/$name" \
         -j"$NCPU"
     copy_framework "$name"
 }
@@ -110,34 +110,15 @@ build_xcode_framework GSCore "$DEPS_DIR/GSCore" GSCORE_INSTALL_PATH MOVE_TO_THEO
 build_xcode_framework Comet "$DEPS_DIR/Comet" COMET_INSTALL_PATH MOVE_TO_THEOS_PATH
 build_xcode_framework GSWeather "$DEPS_DIR/GSWeather" GSWEATHER_INSTALL_PATH MOVE_TO_THEOS_PATH
 
-echo "== Build Orion runtime framework for RootHide =="
-# vendor/lib only ships Orion link stubs (Orion.tbd without a binary, and the
-# iphone/roothide variant uses relative symlinks that break once copied).
-# Build the real runtime framework from the pinned theos/orion submodule.
-make -C "$THEOS/vendor/orion" package \
-    THEOS_PACKAGE_SCHEME=roothide \
-    ROOTHIDE=1 ROOTLESS=0 FINALPACKAGE=1 \
-    -j"$NCPU"
-
-ORION_RUNTIME="$THEOS/vendor/orion/.theos/_/Library/Frameworks/Orion.framework"
-if [[ ! -x "$ORION_RUNTIME/Orion" ]]; then
-    echo "ERROR: Orion runtime framework was not produced"
-    find "$THEOS/vendor/orion" -name '*.framework' -print || true
-    exit 1
-fi
-otool -D "$ORION_RUNTIME/Orion" || true
-otool -L "$ORION_RUNTIME/Orion" || true
-
-# Link stubs: use the self-contained top-level vendor stub (real files only,
-# no symlinks) so packaging never trips over broken links.
+echo "== Prepare Orion link stub =="
+# Orion is provided on RootHide devices by the dev.theos.orion14 package; only
+# the self-contained vendor stub (Orion.tbd with the canonical install name)
+# is needed for linking. The vendor/lib/iphone/roothide variant is never used:
+# its relative symlinks break once copied out of the vendor tree.
 ORION_STUB="$THEOS/vendor/lib/Orion.framework"
 rm -rf "$THEOS/lib/Orion.framework" "$THEOS/lib/iphone/roothide/Orion.framework"
 cp -R "$ORION_STUB" "$THEOS/lib/Orion.framework"
 cp -R "$ORION_STUB" "$THEOS/lib/iphone/roothide/Orion.framework"
-
-# Ship the real Orion runtime inside the package.
-rm -rf "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
-cp -R "$ORION_RUNTIME" "$ROOT_DIR/Layout/Library/Frameworks/Orion.framework"
 
 echo "== Build Dodo RootHide package =="
 cd "$ROOT_DIR"
@@ -148,6 +129,12 @@ make package \
     TARGET=iphone:clang:latest:15.0 \
     FINALPACKAGE=1 \
     -j"$NCPU"
+
+echo "== Collect RootHide dependency debs =="
+# Only GSCore and GSWeather lack published RootHide builds; Comet and Orion
+# already have working RootHide packages on the device.
+cp "$DEPS_DIR/GSCore"/packages/*.deb "$ROOT_DIR/packages/"
+cp "$DEPS_DIR/GSWeather"/packages/*.deb "$ROOT_DIR/packages/"
 
 echo "== Validate output =="
 ls -lah packages/*.deb
