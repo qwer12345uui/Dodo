@@ -4,7 +4,7 @@ import Comet
 
 struct RootView: View {
     @StateObject private var preferenceStorage = PreferenceStorage()
-    
+
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             Colors.formBackground
@@ -29,16 +29,16 @@ private extension RootView {
         HeaderView(
             viewModel: .init(
                 title: "Dodo",
-                version: "4.2.1",
+                version: "4.2.3 RootHide",
                 author: .ginsu
             )
         )
     }
-    
+
     var enableButton: some View {
         PreferenceCell(cell: .enabled(isEnabled: $preferenceStorage.isEnabled))
     }
-    
+
     var sections: some View {
         DetailedNavigationLinkGroupView(links: [
             DetailedNavigationLink(cell: .appearance) {
@@ -55,7 +55,7 @@ private extension RootView {
             }
         ])
     }
-    
+
     var respringButton: some View {
         Button {
             DeviceService().respring()

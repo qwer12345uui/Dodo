@@ -1,10 +1,9 @@
 Package: com.ginsu.dodo
 Name: Dodo ${PKG_NAME_SUFFIX}
-Version: 4.0.0
-Architecture: iphoneos-arm
-Description: The perfect Lock Screen redesign.
-Maintainer: Ginsu
+Version: 4.2.3
+Architecture: iphoneos-arm64e
+Description: The perfect Lock Screen redesign, adapted for RootHide on iOS 15.
+Maintainer: Ginsu / RootHide adaptation by qwer12345uui
 Author: Ginsu
 Section: Tweaks
-Depends: dev.theos.orion14, firmware (>= 14.0), preferenceloader, com.ginsu.comet, com.ginsu.gscore, com.ginsu.gsweather
-
+Depends: firmware (>= 15.0), preferenceloader

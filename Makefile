@@ -1,17 +1,24 @@
 ROOTLESS ?= 0
+ROOTHIDE ?= 0
 
 ARCHS = arm64 arm64e
 THEOS_DEVICE_IP = localhost -p 2222
 INSTALL_TARGET_PROCESSES = SpringBoard
-TARGET = iphone:clang:17.0.2:14.5
-PACKAGE_VERSION = 4.2.2
+TARGET = iphone:clang:latest:15.0
+PACKAGE_VERSION = 4.2.3
 
 Dodo_SWIFTFLAGS = -ISources/DodoC/include
 
-# Rootless / Rootful settings
-ifeq ($(ROOTLESS),1)
+# Rootless / RootHide / Rootful settings
+ifeq ($(ROOTHIDE),1)
+	THEOS_PACKAGE_SCHEME = roothide
+	Dodo_SWIFTFLAGS += -DROOTHIDE
+	Dodo_CFLAGS += -DROOTHIDE
+	PKG_NAME_SUFFIX = (RootHide)
+else ifeq ($(ROOTLESS),1)
 	THEOS_PACKAGE_SCHEME = rootless
-	# Control
+	Dodo_SWIFTFLAGS += -DROOTLESS
+	Dodo_CFLAGS += -DROOTLESS
 	PKG_NAME_SUFFIX = (Rootless)
 endif
 
@@ -21,7 +28,8 @@ TWEAK_NAME = Dodo
 
 Dodo_PRIVATE_FRAMEWORKS = SpringBoard SpringBoardServices SpringBoardFoundation MediaRemote MobileTimer SpringBoardUI CoverSheet WeatherFoundation
 Dodo_FILES = $(shell find Sources/Dodo -name '*.swift') $(shell find Sources/DodoC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
-Dodo_CFLAGS = -fobjc-arc -ISources/DodoC/include
+Dodo_CFLAGS += -fobjc-arc -ISources/DodoC/include
+Dodo_LIBRARIES += roothide
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 SUBPROJECTS += dodo

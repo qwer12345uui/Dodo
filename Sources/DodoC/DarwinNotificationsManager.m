@@ -9,11 +9,11 @@
 #import "include/DarwinNotificationsManager.h"
 
 @implementation DarwinNotificationsManager {
-    NSMutableDictionary * handlers;
+    NSMutableDictionary *handlers;
 }
 
 + (instancetype)sharedInstance {
-    static id instance = NULL;
+    static id instance = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         instance = [[self alloc] init];
@@ -30,41 +30,67 @@
 }
 
 - (void)unregisterForNotificationName:(NSString *)name {
-    handlers[name] = nil;
-    CFNotificationCenterRef center = CFNotificationCenterGetDarwinNotifyCenter();
-    CFNotificationCenterRemoveObserver(center, (__bridge const void *)(self), (__bridge CFStringRef)name, NULL);
+    @synchronized (handlers) {
+        handlers[name] = nil;
+    }
+    CFNotificationCenterRemoveObserver(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        (__bridge const void *)(self),
+        (__bridge CFStringRef)name,
+        NULL
+    );
 }
 
 - (void)registerForNotificationName:(NSString *)name callback:(void (^)(void))callback {
-    handlers[name] = callback;
-    CFNotificationCenterRef center = CFNotificationCenterGetDarwinNotifyCenter();
-    CFNotificationCenterAddObserver(center, (__bridge const void *)(self), defaultNotificationCallback, (__bridge CFStringRef)name, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+    if (name.length == 0 || callback == nil) return;
+    @synchronized (handlers) {
+        handlers[name] = [callback copy];
+    }
+    CFNotificationCenterAddObserver(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        (__bridge const void *)(self),
+        defaultNotificationCallback,
+        (__bridge CFStringRef)name,
+        NULL,
+        CFNotificationSuspensionBehaviorDeliverImmediately
+    );
 }
 
 - (void)postNotificationWithName:(NSString *)name {
-    CFNotificationCenterRef center = CFNotificationCenterGetDarwinNotifyCenter();
-    CFNotificationCenterPostNotification(center, (__bridge CFStringRef)name, NULL, NULL, YES);
+    CFNotificationCenterPostNotification(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        (__bridge CFStringRef)name,
+        NULL,
+        NULL,
+        YES
+    );
 }
 
 - (void)notificationCallbackReceivedWithName:(NSString *)name {
-    void (^callback)(void) = handlers[name];
-    callback();
+    __block void (^callback)(void) = nil;
+    @synchronized (handlers) {
+        callback = handlers[name];
+    }
+    if (callback) callback();
 }
 
-void defaultNotificationCallback (CFNotificationCenterRef center,
-                 void *observer,
-                 CFStringRef name,
-                 const void *object,
-                 CFDictionaryRef userInfo)
-{
+void defaultNotificationCallback(
+    CFNotificationCenterRef center,
+    void *observer,
+    CFStringRef name,
+    const void *object,
+    CFDictionaryRef userInfo
+) {
+    if (name == NULL) return;
     NSString *identifier = (__bridge NSString *)name;
     [[DarwinNotificationsManager sharedInstance] notificationCallbackReceivedWithName:identifier];
 }
 
-
 - (void)dealloc {
-    CFNotificationCenterRef center = CFNotificationCenterGetDarwinNotifyCenter();
-    CFNotificationCenterRemoveEveryObserver(center, (__bridge const void *)(self));
+    CFNotificationCenterRemoveEveryObserver(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        (__bridge const void *)(self)
+    );
 }
 
 @end

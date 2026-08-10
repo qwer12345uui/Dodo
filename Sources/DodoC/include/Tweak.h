@@ -1,35 +1,30 @@
 #import <UIKit/UIKit.h>
-#import <PeterDev/libpddokdo.h>
 #import <AVKit/AVKit.h>
 #import <CoreLocation/CoreLocation.h>
 #include "MediaRemote.h"
 #include "DarwinNotificationsManager.h"
 
-#pragma mark - Location / Weather
+FOUNDATION_EXPORT NSString *DodoRootPath(NSString *path);
 
+#pragma mark - Location / Weather
 @interface CLLocationManager (Private)
 - (instancetype)initWithEffectiveBundleIdentifier:(NSString *)bundleIdentifier;
 @end
-
 @interface WFTemperatureUnitProvider : NSObject
 @property (readonly) int userTemperatureUnit;
 @end
-
 @interface WeatherService : NSObject
 @property (retain, nonatomic) WFTemperatureUnitProvider *temperatureUnitProvider;
 + (instancetype)sharedService;
 @end
 
 #pragma mark - Icon stuff
-
 @interface SBHIconManager : NSObject
 @end
-
 @interface SBApplication : NSObject
-@property (nonatomic,readonly) NSString * bundleIdentifier;
-@property (nonatomic,readonly) NSString * displayName;
+@property (nonatomic,readonly) NSString *bundleIdentifier;
+@property (nonatomic,readonly) NSString *displayName;
 @end
-
 @interface SBApplicationController : NSObject
 + (instancetype)sharedInstance;
 - (SBApplication *)applicationWithBundleIdentifier:(NSString *)identifier;
@@ -37,76 +32,42 @@
 
 #pragma mark - Lock screen views
 @interface CSCombinedListViewController : UIViewController
-- (void) _updateListViewContentInset;
+- (void)_updateListViewContentInset;
 @end
-
-@interface CSQuickActionsView : UIView
-@end
-
-@interface CSTeachableMomentsContainerView : UIView
-@end
-
-@interface SBDashBoardLockScreenEnvironment : NSObject
-@end
-
-@interface SBLockScreenViewControllerBase : NSObject
-@end
-
-@interface CSAdjunctItemView : UIView
-@end
-
+@interface CSQuickActionsView : UIView @end
+@interface CSTeachableMomentsContainerView : UIView @end
+@interface SBDashBoardLockScreenEnvironment : NSObject @end
+@interface SBLockScreenViewControllerBase : NSObject @end
+@interface CSAdjunctItemView : UIView @end
 @interface NCNotificationStructuredListViewController : UIViewController
 @property (nonatomic,readonly) CGSize effectiveContentSize;
 @end
-
-@interface SBFLockScreenDateView : UIView
-@end
-
-@interface SBFLockScreenDateViewController : UIViewController
-@end
-
-@interface SBUIProudLockIconView : UIView
-@end
-
-@interface SBUICallToActionLabel : UIView
-@end
-
-@interface CSHomeAffordanceView : UIView
-@end
-
-@interface CSPageControl : UIView
-@end
-
-@interface CSCoverSheetViewController : UIViewController
-@end
+@interface SBFLockScreenDateView : UIView @end
+@interface SBFLockScreenDateViewController : UIViewController @end
+@interface SBUIProudLockIconView : UIView @end
+@interface SBUICallToActionLabel : UIView @end
+@interface CSHomeAffordanceView : UIView @end
+@interface CSPageControl : UIView @end
+@interface CSCoverSheetViewController : UIViewController @end
 
 #pragma mark - Fetching media data
-
 @interface CSAdjunctListItem : NSObject
 @property (readonly, nonatomic) NSString *identifier;
 @end
-
-@interface CSAdjunctListModel: NSObject
-@end
-
+@interface CSAdjunctListModel: NSObject @end
 @interface MRArtwork : NSObject
 @property (copy, nonatomic) NSData *imageData;
 @end
-
 @interface MRContentItemMetadata : NSObject
-@property (nonatomic,copy) NSString * title;
-@property (nonatomic,copy) NSString * trackArtistName;
+@property (nonatomic,copy) NSString *title;
+@property (nonatomic,copy) NSString *trackArtistName;
 @end
-
 @interface MRContentItem : NSObject
 @property (retain, nonatomic) MRArtwork *artwork;
-@property (nonatomic,copy) MRContentItemMetadata * metadata;
+@property (nonatomic,copy) MRContentItemMetadata *metadata;
 - (instancetype)initWithNowPlayingInfo:(NSDictionary *)nowPlayingInfo;
 @end
-
-@interface SpringBoard : UIApplication
-@end
-
+@interface SpringBoard : UIApplication @end
 @interface SBMediaController : NSObject
 + (instancetype)sharedInstance;
 - (SBApplication *)nowPlayingApplication;
@@ -115,42 +76,35 @@
 - (BOOL)togglePlayPauseForEventSource:(long long)arg1;
 - (void)setNowPlayingInfo:(id)arg1;
 @end
-
 @interface AVRoutePickerView (Private)
 - (void)_routePickerButtonTapped:(id)arg1;
 @end
 
-// MARK: - Alarm
+#pragma mark - Alarm
 @interface MTAlarm : NSObject
-@property (nonatomic,readonly) NSUUID * alarmID;
-@property (nonatomic,readonly) NSURL * alarmURL;
-@property (nonatomic,readonly) NSDate * nextFireDate;
-@property (nonatomic,readonly) NSString * displayTitle;
+@property (nonatomic,readonly) NSUUID *alarmID;
+@property (nonatomic,readonly) NSURL *alarmURL;
+@property (nonatomic,readonly) NSDate *nextFireDate;
+@property (nonatomic,readonly) NSString *displayTitle;
 @property (assign,getter=isEnabled,nonatomic) BOOL enabled;
 @end
-
 @interface MTAlarmCache : NSObject
-@property (nonatomic,retain) NSMutableArray<MTAlarm *> * orderedAlarms;
-@property (nonatomic,retain) NSMutableArray * sleepAlarms;
-@property (nonatomic,retain) MTAlarm * nextAlarm;
+@property (nonatomic,retain) NSMutableArray<MTAlarm *> *orderedAlarms;
+@property (nonatomic,retain) NSMutableArray *sleepAlarms;
+@property (nonatomic,retain) MTAlarm *nextAlarm;
 @end
-
 @interface MTAlarmManager : NSObject
-@property (nonatomic,retain) MTAlarmCache * cache;
+@property (nonatomic,retain) MTAlarmCache *cache;
 @end
-
 @interface SBScheduledAlarmObserver : NSObject
 + (instancetype)sharedInstance;
 @end
 
-// MARK: - Timer
-@interface SBUIPreciseClockTimer : NSObject
-@end
-
+#pragma mark - Timer
+@interface SBUIPreciseClockTimer : NSObject @end
 @interface MTMetrics : NSObject
 + (instancetype)_sharedPublicMetrics;
 @end
-
 @interface MTTimer : NSObject
 @property (readonly, nonatomic) NSUUID *timerID;
 @property (readonly, nonatomic) NSDate *fireDate;
@@ -158,33 +112,27 @@
 @property (readonly, nonatomic) NSURL *timerURL;
 @property (readonly, nonatomic) NSUInteger state;
 @end
-
 @interface MTTimerCache : NSObject
 @property (retain, nonatomic) MTTimer *nextTimer;
 @end
-
 @interface MTTimerManager : NSObject
 @property (retain, nonatomic) MTTimerCache *cache;
 - (instancetype)initWithMetrics:(MTMetrics *)metrics;
 @end
 
-// MARK: - DND
+#pragma mark - DND
 @interface DNDState : NSObject
 @property (getter=isActive,nonatomic,readonly) BOOL active;
 @end
-
 @interface DNDStateUpdate : NSObject
-@property (nonatomic,copy,readonly) DNDState * state;
+@property (nonatomic,copy,readonly) DNDState *state;
 @end
+@interface DNDNotificationsService : NSObject @end
 
-@interface DNDNotificationsService : NSObject
-@end
-
-// MARK: - Flashlight
+#pragma mark - Flashlight
 @interface AVFlashlight : NSObject
 + (BOOL)hasFlashlight;
 @end
-
 @interface SBUIFlashlightController : NSObject
 + (instancetype)sharedInstance;
 - (void)turnFlashlightOnForReason:(id)arg1;
@@ -196,16 +144,11 @@
 @interface UIView (Private)
 - (UIViewController *)_viewControllerForAncestor;
 @end
-
 @interface UIViewController (Private)
 - (BOOL)_canShowWhileLocked;
 @end
-
 @interface UIDevice (Private)
 + (BOOL)_hasHomeButton;
 + (BOOL)currentIsIPad;
 @end
-
-@interface HostingScrollView : UIScrollView
-
-@end
+@interface HostingScrollView : UIScrollView @end

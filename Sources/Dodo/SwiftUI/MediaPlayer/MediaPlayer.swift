@@ -1,24 +1,16 @@
 //
 //  MediaPlayer.swift
-//  
+//
 //
 //  Created by Noah Little on 20/11/2022.
 //
 
 import SwiftUI
 
-//MARK: Public
-
 struct MediaPlayer: View {
-    @Environment(\.isVisibleLockScreen)
-    var isVisibleLockScreen
-    
-    @Environment(\.isLandscape)
-    var isLandscape
-    
-    @ObservedObject
-    var viewModel: ViewModel
-    
+    @Environment(\.isVisibleLockScreen) var isVisibleLockScreen
+    @Environment(\.isLandscape) var isLandscape
+    @ObservedObject var viewModel: ViewModel
     let style: Settings.MediaPlayerStyle
 
     var body: some View {
@@ -33,9 +25,7 @@ struct MediaPlayer: View {
     }
 }
 
-//MARK: - Private
-
-private extension MediaPlayer {    
+private extension MediaPlayer {
     var playerView: some View {
         Group {
             if viewModel.hasActiveMediaApp {
@@ -55,13 +45,9 @@ private extension MediaPlayer {
                 SuggestionView()
             }
         }
-        // Take up all the space we need in portrait, only take up what we need in landscape.
-        .fixedSize(
-            horizontal: isLandscape,
-            vertical: true
-        )
+        .fixedSize(horizontal: isLandscape, vertical: true)
     }
-    
+
     var modularBackground: some View {
         RoundedRectangle(cornerRadius: style.cornerRadius)
             .fill(
@@ -72,7 +58,7 @@ private extension MediaPlayer {
             .colorMultiply(Color(viewModel.modularBackgroundColorMultiply))
             .animation(.easeInOut, value: viewModel.artworkColour)
     }
-    
+
     @ViewBuilder
     var songDetailsButton: some View {
         Button {
@@ -87,7 +73,7 @@ private extension MediaPlayer {
         }
         .layoutPriority(-1)
     }
-    
+
     @ViewBuilder
     var albumArtwork: some View {
         if let image = viewModel.albumArtwork {
@@ -99,22 +85,22 @@ private extension MediaPlayer {
                 .shadow(color: .black.opacity(0.4), radius: style.artworkRadius)
         }
     }
-    
+
     @ViewBuilder
     var trackDetails: some View {
         let isMarquee = viewModel.settings.mediaPlayer.isMarqueeLabels
-        
+
         VStack(alignment: .leading, spacing: isMarquee ? 0.0 : 4.0) {
             textView(isMarquee: isMarquee, isTrackLabel: true)
             textView(isMarquee: isMarquee, isTrackLabel: false)
         }
     }
-    
+
     @ViewBuilder
     func textView(isMarquee: Bool, isTrackLabel: Bool) -> some View {
         let text = isTrackLabel ? viewModel.trackName : viewModel.artistName
         let fontSize = isTrackLabel ? 15.0 : 12.0
-        
+
         if isMarquee {
             MarqueeText(
                 text: text,
@@ -125,7 +111,7 @@ private extension MediaPlayer {
                 isScrollable: isVisibleLockScreen
             )
         } else {
-            Text(viewModel.trackName)
+            Text(text)
                 .dodoFont(size: fontSize)
                 .foregroundColor(Color(viewModel.foregroundColour))
                 .lineLimit(1)
