@@ -230,22 +230,28 @@ class NCNotificationStructuredListViewController_Hook: ClassHook<NCNotificationS
     
     //orion: new
     func dodoSetupMask() {
-        target.view.layer.mask = cropFrame
-                
+        // [FIX] bounds 为空（视图尚未完成布局）时直接返回，避免计算出非法 mask 参数。
         let screenHeight = target.view.bounds.maxY
+        guard screenHeight > 0 else { return }
+        
         let androBarHeight = PreferenceManager.shared.settings.dimensions.androBarHeight
         let startY: CGFloat = (LocalState.shared.dodoFrame.minY - androBarHeight - 50) / screenHeight
         let endY: CGFloat = (LocalState.shared.dodoFrame.minY - androBarHeight) / screenHeight
-
-        cropFrame.startPoint = CGPoint(
-            x: 0.5,
-            y: startY
-        )
+        let newStart = CGPoint(x: 0.5, y: startY)
+        let newEnd = CGPoint(x: 0.5, y: endY)
         
-        cropFrame.endPoint = CGPoint(
-            x: 0.5,
-            y: endY
-        )
+        // [FIX] 参数未变化且 mask 已是 cropFrame 时跳过赋值。
+        // 原实现每次 .didUpdateHeight 广播都重设 layer.mask，会触发通知列表重新布局，
+        // 与 Container.updateFrame 的广播叠加形成主线程布局反馈环（下拉通知中心时放大）。
+        if target.view.layer.mask === cropFrame,
+           cropFrame.startPoint.equalTo(newStart),
+           cropFrame.endPoint.equalTo(newEnd) {
+            return
+        }
+        
+        target.view.layer.mask = cropFrame
+        cropFrame.startPoint = newStart
+        cropFrame.endPoint = newEnd
     }
 }
 

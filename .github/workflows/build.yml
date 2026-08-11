@@ -1,0 +1,221 @@
+name: Build Dodo
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  THEOS: /Users/runner/work/theos
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: CI heartbeat comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          TITLE="Dodo CI 构建日志"
+          ISSUE=$(gh issue list --repo "$REPO" --search "$TITLE in:title" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -z "$ISSUE" ]; then
+            ISSUE=$(gh issue create --repo "$REPO" --title "$TITLE" --body "自动构建状态记录（由 GitHub Actions 维护，请勿关闭）。" --json number --jq '.number')
+          fi
+          echo "ISSUE=$ISSUE" >> "$GITHUB_ENV"
+          gh issue comment --repo "$REPO" "$ISSUE" --body "🔨 构建开始 commit ${{ github.sha }}"
+
+      - name: Select Xcode 15.x
+        run: |
+          ls /Applications/ | grep -i xcode || true
+          if ls -d /Applications/Xcode_15*.app >/dev/null 2>&1; then
+            XC=$(ls -d /Applications/Xcode_15*.app | sort | tail -1)
+            sudo xcode-select -s "$XC/Contents/Developer"
+          fi
+          xcodebuild -version
+          clang --version
+          swift --version
+
+      - name: Install host tools
+        run: |
+          (brew install ldid xz gnu-tar dpkg) || (brew install ldid-procursus xz gnu-tar dpkg)
+          if ! command -v ldid >/dev/null 2>&1 && command -v ldid-procursus >/dev/null 2>&1; then
+            ln -sf "$(command -v ldid-procursus)" /opt/homebrew/bin/ldid
+          fi
+          which ldid dpkg-deb gtar xz python3
+
+      - name: Install Theos (roothide fork)
+        run: |
+          git clone --recursive https://github.com/roothide/theos.git "$THEOS"
+          ls "$THEOS"
+
+      - name: Install patched iPhoneOS SDK
+        run: |
+          set -e
+          mkdir -p "$THEOS/sdks"
+          cd "$THEOS/sdks"
+          ok=0
+          for v in 17.0 17.4 17.2 17.5 16.5; do
+            for base in "https://github.com/theos/sdks/raw/master/sdks" "https://raw.githubusercontent.com/theos/sdks/master/sdks"; do
+              url="$base/iPhoneOS${v}.sdk.tar.xz"
+              echo ">>> trying $url"
+              if curl -fsL --retry 2 -o sdk.tar.xz "$url"; then
+                tar -xf sdk.tar.xz && rm -f sdk.tar.xz && ok=1 && break 2
+              fi
+            done
+          done
+          if [ "$ok" != "1" ]; then echo "SDK download failed"; exit 1; fi
+          ls -la "$THEOS/sdks"
+
+      - name: Install dependency frameworks
+        run: |
+          set -e
+          mkdir -p /tmp/deps
+          cd /tmp/deps
+          cat > fetch_deps.py <<'PYEOF'
+          import bz2, gzip, lzma, os, re, shutil, subprocess, sys, urllib.request
+
+          THEOS_LIB = sys.argv[1]
+          BASE = "https://noahlittle.net/repo"
+          WANT = ["dev.theos.orion14", "com.ginsu.comet", "com.ginsu.gscore", "com.ginsu.gsweather"]
+          UA = {"User-Agent": "curl/8.0"}
+
+          def fetch(url):
+              req = urllib.request.Request(url, headers=UA)
+              with urllib.request.urlopen(req, timeout=60) as r:
+                  return r.read()
+
+          idx_text = None
+          for idx in ["Packages", "Packages.xz", "Packages.gz", "Packages.bz2",
+                      "dists/stable/main/binary-iphoneos-arm64e/Packages",
+                      "dists/stable/main/binary-iphoneos-arm64/Packages"]:
+              url = BASE + "/" + idx
+              try:
+                  print(">>> trying index", url, flush=True)
+                  raw = fetch(url)
+                  if idx.endswith(".xz"):
+                      raw = lzma.decompress(raw)
+                  elif idx.endswith(".gz"):
+                      raw = gzip.decompress(raw)
+                  elif idx.endswith(".bz2"):
+                      raw = bz2.decompress(raw)
+                  idx_text = raw.decode("utf-8", "replace")
+                  print("index OK:", idx, len(idx_text), "bytes", flush=True)
+                  break
+              except Exception as e:
+                  print("    failed:", e, flush=True)
+          if idx_text is None:
+              sys.exit("repo index not found")
+
+          def vkey(v):
+              return tuple(int(x) for x in re.findall(r"\d+", v)[:4])
+
+          best = {}
+          for stanza in idx_text.split("\n\n"):
+              name = fn = ver = None
+              for ln in stanza.splitlines():
+                  if ln.startswith("Package: "):
+                      name = ln[9:].strip()
+                  elif ln.startswith("Filename: "):
+                      fn = ln[10:].strip()
+                  elif ln.startswith("Version: "):
+                      ver = ln[9:].strip()
+              if name in WANT and fn:
+                  if name not in best or vkey(ver or "0") > vkey(best[name][1] or "0"):
+                      best[name] = (fn, ver)
+
+          for pkg in WANT:
+              if pkg not in best:
+                  sys.exit("MISSING PACKAGE: " + pkg)
+              fn, ver = best[pkg]
+              if fn.startswith("http"):
+                  url = fn
+              elif fn.startswith("./"):
+                  url = BASE + "/" + fn[2:]
+              elif fn.startswith("/"):
+                  url = "https://noahlittle.net" + fn
+              else:
+                  url = BASE + "/" + fn
+              print(">>> %s %s -> %s" % (pkg, ver, url), flush=True)
+              data = fetch(url)
+              with open("pkg.deb", "wb") as f:
+                  f.write(data)
+              shutil.rmtree("x", ignore_errors=True)
+              os.mkdir("x")
+              subprocess.check_call(["ar", "x", "pkg.deb"], cwd="x")
+              data_tar = [f for f in os.listdir("x") if f.startswith("data.tar")][0]
+              subprocess.check_call(["tar", "xf", data_tar], cwd="x")
+              for root, dirs, files in os.walk("x"):
+                  for d in dirs:
+                      if d.endswith(".framework"):
+                          src = os.path.join(root, d)
+                          dst = os.path.join(THEOS_LIB, d)
+                          print("install", d, "->", dst, flush=True)
+                          shutil.rmtree(dst, ignore_errors=True)
+                          shutil.copytree(src, dst, symlinks=True)
+          print("ALL DEPENDENCIES INSTALLED", flush=True)
+          PYEOF
+          python3 fetch_deps.py "$THEOS/lib"
+          ls -la "$THEOS/lib/"
+
+      - name: Build Dodo deb
+        run: |
+          set -o pipefail
+          cd "$GITHUB_WORKSPACE"
+          SDKNAME=$(ls "$THEOS/sdks" | grep -E '^iPhoneOS[0-9]+(\.[0-9]+)?\.sdk$' | sort | tail -1)
+          SDKVER=${SDKNAME#iPhoneOS}; SDKVER=${SDKVER%.sdk}
+          echo "Using SDK: $SDKNAME ($SDKVER)"
+          make clean 2>&1 | tee /tmp/build.log || true
+          make package FINALPACKAGE=1 \
+            THEOS_PACKAGE_SCHEME=roothide \
+            PKG_NAME_SUFFIX="(RootHide)" \
+            TARGET="iphone:clang:${SDKVER}:14.5" 2>&1 | tee -a /tmp/build.log
+          echo "=== packages ==="
+          ls -la packages/
+
+      - name: Upload deb artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dodo-4.2.4-deb
+          path: packages/*.deb
+
+      - name: Create GitHub Release with deb
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          deb=$(ls packages/*.deb | head -1)
+          gh release delete v4.2.4 --yes >/dev/null 2>&1 || true
+          gh release create v4.2.4 "$deb" \
+            --target "${{ github.sha }}" \
+            --title "Dodo 4.2.4 (RootHide)" \
+            --notes "修复下拉通知中心卡注销（SpringBoard 主线程 watchdog）与首次安装安全模式。由 GitHub Actions 自动构建。"
+
+      - name: Report build result to issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          TITLE="Dodo CI 构建日志"
+          if [ -z "$ISSUE" ]; then
+            ISSUE=$(gh issue list --repo "$REPO" --search "$TITLE in:title" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          fi
+          if [ -z "$ISSUE" ]; then
+            ISSUE=$(gh issue create --repo "$REPO" --title "$TITLE" --body "自动构建状态记录（由 GitHub Actions 维护，请勿关闭）。" --json number --jq '.number')
+          fi
+          if [ "${{ job.status }}" = "success" ]; then
+            DEB=$(ls packages/*.deb 2>/dev/null | head -1 || true)
+            { echo "✅ 构建成功 commit ${{ github.sha }}"; echo ""; echo "产物: \`$DEB\`"; echo ""; echo "下载: https://github.com/$REPO/releases/tag/v4.2.4"; } > /tmp/comment.md
+          else
+            { echo "❌ 构建失败 commit ${{ github.sha }}，日志尾部："; echo '```'; tail -n 250 /tmp/build.log 2>/dev/null || echo "(无日志)"; echo '```'; } > /tmp/comment.md
+          fi
+          gh issue comment --repo "$REPO" "$ISSUE" --body-file /tmp/comment.md

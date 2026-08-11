@@ -4,6 +4,11 @@
 //
 //  Created by Noah Little on 22/11/2022.
 //
+//  [FIX 2026-08] RootHide iOS 15 下拉卡注销修复：
+//  崩溃日志显示 SpringBoard 主线程 60s 无响应被 watchdog 强杀。
+//  根因：init() 在主线程同步调用 locationProvider.set(isUpdatingLocation:) 启动
+//  CLLocationManager，与 locationd 的 XPC 握手在 RootHide 环境下可能无限期阻塞
+//  主线程。所有定位/天气相关操作全部移入后台队列，主线程只负责 Combine 回传 UI。
 
 import Foundation
 import DodoC
@@ -61,6 +66,10 @@ extension WeatherView {
         private let weatherProvider: WeatherProvider
         private let settings = PreferenceManager.shared.settings.weather
         
+        /// [FIX] 专用后台队列，所有 LocationProvider / WeatherProvider 调用都在这里执行，
+        /// 避免在主线程上做 locationd XPC / 网络触发的同步工作。
+        private let weatherQueue = DispatchQueue(label: "com.ginsu.dodo.weather", qos: .utility)
+        
         init() {
             self.locationProvider = .init()
             self.weatherProvider = .init()
@@ -71,18 +80,29 @@ extension WeatherView {
                 self.isDisplayingCelsius = currentTemperatureUnit() == .celsius
             }
             
-            locationProvider.set(isUpdatingLocation: true)
             subscribe()
+            
+            // [FIX] 原代码在主线程直接启动定位：
+            //   locationProvider.set(isUpdatingLocation: true)
+            // CLLocationManager 启动会同步与 locationd 握手，RootHide iOS 15 上可阻塞
+            // SpringBoard 主线程超过 60 秒触发 watchdog（下拉通知中心时锁屏视图重建
+            // 会重新走到这里，这就是"下拉卡注销、触发时间不确定"的来源）。
+            weatherQueue.async { [locationProvider] in
+                locationProvider.set(isUpdatingLocation: true)
+            }
         }
         
         func updateWeather() {
             guard canFetchWeather(), let location = location.value
             else { return }
             
-            weatherProvider.fetchWeather(provider: .meteo(
-                location: location,
-                timezone: .current
-            ))
+            // [FIX] 天气抓取放后台队列执行。
+            weatherQueue.async { [weatherProvider] in
+                weatherProvider.fetchWeather(provider: .meteo(
+                    location: location,
+                    timezone: .current
+                ))
+            }
         }
         
         func onTapWeather() {
@@ -173,8 +193,14 @@ private extension WeatherView.ViewModel {
         }
         
         // Enable/Disable location monitoring depending on screen on state
+        // [FIX] 屏幕开关时的定位切换同样不能在主线程同步执行。
         LocalState.shared.$isScreenOff
-            .sink { [weak self] in self?.locationProvider.set(isUpdatingLocation: !$0) }
+            .sink { [weak self] isScreenOff in
+                guard let self else { return }
+                self.weatherQueue.async {
+                    self.locationProvider.set(isUpdatingLocation: !isScreenOff)
+                }
+            }
             .store(in: &bag)
         
         // Store location locally
