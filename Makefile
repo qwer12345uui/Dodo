@@ -5,7 +5,7 @@ ARCHS = arm64 arm64e
 THEOS_DEVICE_IP = localhost -p 2222
 INSTALL_TARGET_PROCESSES = SpringBoard
 TARGET ?= iphone:clang:latest:15.0
-PACKAGE_VERSION = 4.2.3
+PACKAGE_VERSION = 4.2.4
 XCODE_SWIFT_LIB = $(dir $(shell xcrun --sdk iphoneos -f swiftc))../lib/swift/iphoneos
 
 Dodo_SWIFTFLAGS = -ISources/DodoC/include

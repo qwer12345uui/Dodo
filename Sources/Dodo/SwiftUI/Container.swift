@@ -4,6 +4,9 @@
 //
 //  Created by Noah Little on 19/11/2022.
 //
+//  [FIX 4.2.4] updateFrame 仅在 frame 真正变化时才写入并广播 .didUpdateHeight，
+//  打破 "frame 广播 → dodoSetupMask 重设 layer.mask → 视图重新布局 → readFrame 再回调"
+//  的潜在主线程布局反馈环。
 
 import SwiftUI
 import DodoC
@@ -126,7 +129,11 @@ private extension Container {
     }
     
     func updateFrame(_ frame: CGRect) {
+        // [FIX] frame 没有实际变化时直接返回，不写入状态也不发通知。
+        guard !frame.equalTo(localState.dodoFrame) else { return }
         DispatchQueue.main.async {
+            // 二次检查：排队期间可能已被其他回调更新。
+            guard !frame.equalTo(localState.dodoFrame) else { return }
             localState.dodoFrame = frame
             NotificationCenter.default.post(
                 name: .didUpdateHeight,

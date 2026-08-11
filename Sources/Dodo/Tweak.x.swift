@@ -228,12 +228,24 @@ class NCNotificationStructuredListViewController_Hook: ClassHook<NCNotificationS
 
         let startY = min(max(rawStartY, 0), 1)
         let endY = min(max(rawEndY, startY), 1)
+        let newStart = CGPoint(x: 0.5, y: startY)
+        let newEnd = CGPoint(x: 0.5, y: endY)
+
+        // [FIX 4.2.4] 参数未变化时跳过重设 mask：赋值 layer.mask 会强制通知列表
+        // 重新布局，进而再次触发 Dodo frame 广播，与 Container.updateFrame 叠加
+        // 形成主线程布局反馈环（下拉过渡期间放大，watchdog 诱因之一）。
+        if target.view.layer.mask === cropFrame,
+           cropFrame.frame.equalTo(bounds),
+           cropFrame.startPoint.equalTo(newStart),
+           cropFrame.endPoint.equalTo(newEnd) {
+            return
+        }
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         cropFrame.frame = bounds
-        cropFrame.startPoint = CGPoint(x: 0.5, y: startY)
-        cropFrame.endPoint = CGPoint(x: 0.5, y: endY)
+        cropFrame.startPoint = newStart
+        cropFrame.endPoint = newEnd
         target.view.layer.mask = cropFrame
         CATransaction.commit()
     }

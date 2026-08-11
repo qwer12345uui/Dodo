@@ -56,7 +56,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Dodo-4.2.3-RootHide-iOS15
+          name: Dodo-4.2.4-RootHide-iOS15
           path: packages/*.deb
           if-no-files-found: error
 
@@ -64,8 +64,8 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v4.2.3-roothide-${{ github.run_number }}
-          name: Dodo 4.2.3 RootHide (iOS 15)
+          tag_name: v4.2.4-roothide-${{ github.run_number }}
+          name: Dodo 4.2.4 RootHide (iOS 15)
           target_commitish: roothide-ios15
           prerelease: true
           generate_release_notes: false
@@ -78,6 +78,8 @@ jobs:
             3. Install com.ginsu.dodo, then respring.
 
             Fixes included:
+            - Fixes the SpringBoard watchdog kill (main thread blocked 60s) when pulling down Notification Center: CoreLocation start/toggles and weather fetching now run on a dedicated background queue instead of the main thread.
+            - Skips redundant mask/frame updates, breaking the didUpdateHeight -> mask -> relayout feedback loop on the main thread.
             - Prevents invalid Core Animation mask coordinates during lock-screen pull-down transitions.
             - Restores media controls with filesystem loading and SF Symbol fallbacks.
             - Uses dynamic RootHide jbroot()/.jbroot resource paths.
