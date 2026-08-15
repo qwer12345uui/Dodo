@@ -3,7 +3,7 @@ ROOTLESS ?= 0
 ARCHS = arm64 arm64e
 THEOS_DEVICE_IP = localhost -p 2222
 INSTALL_TARGET_PROCESSES = SpringBoard
-TARGET = iphone:clang:17.0.2:14.5
+TARGET ?= iphone:clang:latest:15.0
 # [FIX] 修复版版本号 4.2.4，与有问题的 4.2.3 区分
 PACKAGE_VERSION = 4.2.4
 
