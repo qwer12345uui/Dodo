@@ -21,6 +21,8 @@ jobs:
         run: |
           set -euxo pipefail
           git clone --recurse-submodules --depth 1 https://github.com/theos/theos.git "$GITHUB_WORKSPACE/theos"
+          brew install ldid
+          command -v ldid
           echo "THEOS=$GITHUB_WORKSPACE/theos" >> "$GITHUB_ENV"
           mkdir -p logs audit extracted
           xcodebuild -version | tee logs/toolchain.txt
