@@ -1,6 +1,9 @@
 name: Build Dodo iOS 15 RootHide Migration
 
 on:
+  push:
+    branches:
+      - migration/ios15-roothide
   workflow_dispatch:
 
 permissions:
