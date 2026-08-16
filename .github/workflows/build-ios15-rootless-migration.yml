@@ -1,6 +1,9 @@
 name: Build Dodo iOS 15 Rootless Migration
 
 on:
+  push:
+    branches:
+      - migration/ios15-rootless
   workflow_dispatch:
 
 permissions:
