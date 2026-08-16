@@ -23,6 +23,8 @@ jobs:
           git clone --recurse-submodules --depth 1 https://github.com/roothide/theos.git "$GITHUB_WORKSPACE/theos"
           test -f "$GITHUB_WORKSPACE/theos/vendor/include/roothide.h"
           test -f "$GITHUB_WORKSPACE/theos/vendor/lib/libroothide.tbd"
+          brew install ldid
+          command -v ldid
           echo "THEOS=$GITHUB_WORKSPACE/theos" >> "$GITHUB_ENV"
           mkdir -p logs audit extracted
           xcodebuild -version | tee logs/toolchain.txt
