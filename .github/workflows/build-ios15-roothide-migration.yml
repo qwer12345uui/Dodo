@@ -1,0 +1,77 @@
+name: Build Dodo iOS 15 RootHide Migration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install RootHide Theos
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --recurse-submodules --depth 1 https://github.com/roothide/theos.git "$GITHUB_WORKSPACE/theos"
+          test -f "$GITHUB_WORKSPACE/theos/vendor/include/roothide.h"
+          test -f "$GITHUB_WORKSPACE/theos/vendor/lib/libroothide.tbd"
+          echo "THEOS=$GITHUB_WORKSPACE/theos" >> "$GITHUB_ENV"
+          mkdir -p logs audit extracted
+          xcodebuild -version | tee logs/toolchain.txt
+          swiftc --version | tee -a logs/toolchain.txt
+
+      - name: Build RootHide dependency set and Dodo candidate
+        id: build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x ci/build-roothide-migration.sh
+          ci/build-roothide-migration.sh 2>&1 | tee logs/build-roothide.log
+
+      - name: Audit all candidate packages
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          shasum -a 256 candidates/*.deb > audit/SHA256SUMS 2>/dev/null || true
+          for deb in candidates/*.deb; do
+            [[ -f "$deb" ]] || continue
+            stem="$(basename "$deb" .deb)"
+            dpkg-deb -I "$deb" > "audit/${stem}.dpkg-deb-I.txt" || true
+            dpkg-deb -c "$deb" > "audit/${stem}.dpkg-deb-c.txt" || true
+            rm -rf "extracted/$stem" && mkdir -p "extracted/$stem"
+            dpkg-deb -x "$deb" "extracted/$stem" || true
+            find "extracted/$stem" -type f -print0 | while IFS= read -r -d '' bin; do
+              if file -b "$bin" | grep -q 'Mach-O'; then
+                {
+                  echo "### $bin"
+                  file "$bin"
+                  xcrun otool -D "$bin" || true
+                  xcrun otool -L "$bin" || true
+                  xcrun otool -l "$bin" | grep -A2 LC_RPATH || true
+                  codesign -d --entitlements :- "$bin" 2>&1 || true
+                  strings -a "$bin" | grep -E '/var/jb|/rootfs|@loader_path|@rpath|jbroot' || true
+                } >> "audit/${stem}.macho-audit.txt"
+              fi
+            done
+            grep -RInE '/var/jb|/rootfs|jbroot\(|@loader_path|@rpath' "extracted/$stem" > "audit/${stem}.path-audit.txt" 2>/dev/null || true
+            find "extracted/$stem" -type f \( -name preinst -o -name postinst -o -name prerm -o -name postrm -o -name '*.sh' \) -print > "audit/${stem}.script-list.txt"
+          done
+
+      - name: Upload candidates and complete evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dodo-roothide-${{ github.run_number }}
+          if-no-files-found: warn
+          path: |
+            candidates/**/*.deb
+            logs/**
+            audit/**
+            extracted/**/DEBIAN/**
