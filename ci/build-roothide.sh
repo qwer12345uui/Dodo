@@ -188,6 +188,9 @@ echo "== Build Dodo RootHide package =="
 cd "$ROOT_DIR"
 rm -rf .theos packages
 make package \
+    DEVELOPER_DIR="$DEVELOPER_DIR" \
+    THEOS_PLATFORM_SDK_ROOT="$DEVELOPER_DIR" \
+    PREFIX="$XCODE_TOOLCHAIN_PREFIX" \
     ROOTHIDE=1 ROOTLESS=0 \
     THEOS_PACKAGE_SCHEME=roothide \
     TARGET=iphone:clang:latest:15.0 \
