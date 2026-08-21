@@ -35,6 +35,16 @@ build_dependency() {
         exit 1
     fi
 
+    # Framework makefiles assemble their architecture-specific Swift module
+    # directory during staging. We only build the framework target above, so
+    # mirror that small staging step before compiling Dodo against it.
+    local swiftmodule
+    swiftmodule="$(find "$directory/.theos/obj" -path '*arm64e*' -name "$name.swiftmodule" -type f | head -n 1 || true)"
+    if [[ -n "$swiftmodule" ]]; then
+        mkdir -p "$framework/Modules/$name.swiftmodule"
+        cp "$swiftmodule" "$framework/Modules/$name.swiftmodule/arm64e-apple-ios.swiftmodule"
+    fi
+
     rm -rf "$THEOS/lib/$name.framework" "$THEOS/lib/iphone/rootless/$name.framework"
     cp -R "$framework" "$THEOS/lib/$name.framework"
     cp -R "$framework" "$THEOS/lib/iphone/rootless/$name.framework"
