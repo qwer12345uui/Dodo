@@ -32,7 +32,7 @@ git clone --depth 1 https://github.com/ginsudev/GSWeather.git "$DEPS_DIR/GSWeath
 
 # GSCore used a fixed /var/jb path. RootHide randomizes jbroot, so resolve it
 # through the .jbroot symlink placed next to each loaded Mach-O framework.
-cat > "$DEPS_DIR/GSCore/GSCore/Extensions/String+Extensions.swift" <<'SWIFT'
+cat > "$DEPS_DIR/GSCore/Sources/GSCore/Core/Extensions/String+Extensions.swift" <<'SWIFT'
 import Foundation
 
 private final class GSCorePathToken: NSObject {}
