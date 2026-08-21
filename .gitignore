@@ -4,6 +4,7 @@
 .build
 .swiftpm
 .netrc
+.swift-version
 
 # Theos
 .theos
