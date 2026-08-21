@@ -3,6 +3,7 @@ name: Build Dodo RootHide arm64e (XS Max fix)
 on:
   push:
     branches:
+      - main
       - fix/notification-push-roothide-xsmax
   workflow_dispatch:
 
@@ -46,7 +47,7 @@ jobs:
           dpkg-deb -I "$DODO_DEB" | tee audit/dodo-package-info.txt
           dpkg-deb -c "$DODO_DEB" | tee audit/dodo-package-files.txt
           dpkg-deb -x "$DODO_DEB" extracted/dodo
-          grep -E '^Architecture: iphoneos-arm64e$' audit/dodo-package-info.txt
+          grep -E '^[[:space:]]*Architecture: iphoneos-arm64e$' audit/dodo-package-info.txt
           find extracted/dodo -type f \( -name 'Dodo.dylib' -o -name 'dodo' \) -print | tee audit/dodo-binaries.txt
           test -s audit/dodo-binaries.txt
           while IFS= read -r binary; do
