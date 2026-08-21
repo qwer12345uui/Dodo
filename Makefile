@@ -36,8 +36,12 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = Dodo
 
+# Keep the Swift UIKit overlay discoverable for arm64/arm64e Theos links.
+XCODE_SWIFT_LIB = $(dir $(shell xcrun --sdk iphoneos -f swiftc))../lib/swift/iphoneos
 Dodo_PRIVATE_FRAMEWORKS = SpringBoard SpringBoardServices SpringBoardFoundation MediaRemote MobileTimer SpringBoardUI CoverSheet WeatherFoundation
 Dodo_FILES = $(shell find Sources/Dodo -name '*.swift') $(shell find Sources/DodoC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
+Dodo_LDFLAGS += -L$(XCODE_SWIFT_LIB)
+Dodo_LIBRARIES += swiftUIKit
 Dodo_CFLAGS += -fobjc-arc -ISources/DodoC/include
 
 include $(THEOS_MAKE_PATH)/tweak.mk
