@@ -8,7 +8,16 @@ NCPU="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 export THEOS
 
 rm -rf "$DEPS_DIR" "$ROOT_DIR/.theos" "$ROOT_DIR/packages" "$ROOT_DIR/candidates"
-mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/rootless" "$ROOT_DIR/candidates"
+mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/rootless" "$THEOS/sdks" "$ROOT_DIR/candidates"
+
+# Apple's public SDK omits SpringBoard and the other private frameworks used by
+# Dodo. Use the iOS 15.6 Theos SDK, which provides link-only private stubs.
+SDK_REPO="$DEPS_DIR/theos-sdks"
+git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git "$SDK_REPO"
+git -C "$SDK_REPO" sparse-checkout set iPhoneOS15.6.sdk
+rm -rf "$THEOS/sdks/iPhoneOS15.6.sdk"
+cp -R "$SDK_REPO/iPhoneOS15.6.sdk" "$THEOS/sdks/iPhoneOS15.6.sdk"
+test -d "$THEOS/sdks/iPhoneOS15.6.sdk/System/Library/PrivateFrameworks/SpringBoard.framework"
 
 build_dependency() {
     local name="$1"
@@ -74,7 +83,7 @@ cd "$ROOT_DIR"
 echo "== Build Dodo 5.0.1 rootless arm64e package =="
 make package \
     ROOTLESS=1 ROOTHIDE=0 THEOS_PACKAGE_SCHEME=rootless \
-    TARGET=iphone:clang:latest:15.0 ARCHS=arm64e FINALPACKAGE=1 -j"$NCPU"
+    TARGET=iphone:clang:latest:15.0 SDKVERSION=15.6 ARCHS=arm64e FINALPACKAGE=1 -j"$NCPU"
 
 find "$ROOT_DIR/packages" -maxdepth 1 -type f -name '*.deb' -print -exec cp {} "$ROOT_DIR/candidates/" \;
 if ! find "$ROOT_DIR/candidates" -maxdepth 1 -type f -name 'com.ginsu.dodo_5.0.1_iphoneos-arm64e.deb' | grep -q .; then
