@@ -1,11 +1,23 @@
 .DS_Store
-/.build
-/Packages
-/*.xcodeproj
-xcuserdata/
 
-.theos
+# Swift Package Manager
+.build
 .swiftpm
+.netrc
+.swift-version
+/Packages
+/DerivedData/
+
+# Theos / RootHide build output
+.theos
 dodo/.theos
 dodo/.swiftpm
+packages/
 /packages
+
+# Xcode and editors
+*.xcodeproj
+xcuserdata/
+.sourcekit-lsp/
+.vscode/
+compile_commands.json
