@@ -1,4 +1,10 @@
+export THEOS_PLATFORM_SDK_ROOT=/Applications/Xcode-15.4.0.app/Contents/Developer
+export PREFIX=$(THEOS_PLATFORM_SDK_ROOT)/Toolchains/XcodeDefault.xctoolchain/usr/bin/
+export ARCHS = arm64 arm64e
+export TARGET = iphone:clang:16.5:14.5
+
 ROOTLESS ?= 0
+<<<<<<< HEAD
 ROOTHIDE ?= 0
 
 ARCHS = arm64 arm64e
@@ -30,10 +36,18 @@ else ifeq ($(ROOTLESS),1)
 	Dodo_SWIFTFLAGS += -DROOTLESS
 	Dodo_CFLAGS += -DROOTLESS
 	PKG_NAME_SUFFIX = (Rootless)
+=======
+INSTALL_TARGET_PROCESSES = SpringBoard
+PACKAGE_VERSION = 5.0.0
+
+ifeq ($(ROOTLESS),1)
+	export THEOS_PACKAGE_SCHEME = rootless
+>>>>>>> upstream/main
 endif
 
 include $(THEOS)/makefiles/common.mk
 
+<<<<<<< HEAD
 TWEAK_NAME = Dodo
 
 # Keep the Swift UIKit overlay discoverable for arm64/arm64e Theos links.
@@ -53,3 +67,8 @@ before-package::
 	$(ECHO_NOTHING)sed -i '' \
 	-e 's/\$${PKG_NAME_SUFFIX}/$(PKG_NAME_SUFFIX)/g' \
 	$(THEOS_STAGING_DIR)/DEBIAN/control$(ECHO_END)
+=======
+SUBPROJECTS += Dodo
+SUBPROJECTS += DodoPrefs
+include $(THEOS_MAKE_PATH)/aggregate.mk
+>>>>>>> upstream/main
