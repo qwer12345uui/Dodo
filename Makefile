@@ -5,8 +5,9 @@ ARCHS = arm64 arm64e
 THEOS_DEVICE_IP = localhost -p 2222
 INSTALL_TARGET_PROCESSES = SpringBoard
 TARGET ?= iphone:clang:latest:15.0
-# [FIX] 修复版版本号 4.2.4，与有问题的 4.2.3 区分
-PACKAGE_VERSION = 4.2.4
+# Push-notification stability repair for iPhone XS Max / iOS 15 RootHide.
+# A newer version avoids replacing the user's existing 5.0.0 package in place.
+PACKAGE_VERSION = 5.0.1+roothide1
 
 Dodo_SWIFTFLAGS = -ISources/DodoC/include
 

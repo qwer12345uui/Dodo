@@ -1,0 +1,68 @@
+name: Build Dodo RootHide arm64e (XS Max fix)
+
+on:
+  push:
+    branches:
+      - fix/notification-push-roothide-xsmax
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repair branch
+        uses: actions/checkout@v4
+
+      - name: Install RootHide Theos and packaging tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --recurse-submodules --depth 1 https://github.com/roothide/theos.git "$GITHUB_WORKSPACE/theos"
+          brew install ldid dpkg
+          echo "THEOS=$GITHUB_WORKSPACE/theos" >> "$GITHUB_ENV"
+          mkdir -p logs audit extracted
+          xcodebuild -version | tee logs/toolchain.txt
+          swiftc --version | tee -a logs/toolchain.txt
+          test -f "$GITHUB_WORKSPACE/theos/vendor/mod/roothide/package.mk"
+
+      - name: Build RootHide arm64e package and dependencies
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x ci/build-roothide.sh
+          ci/build-roothide.sh 2>&1 | tee logs/build-roothide.log
+
+      - name: Validate RootHide DEB metadata and payload
+        shell: bash
+        run: |
+          set -euxo pipefail
+          DODO_DEB="$(find packages -maxdepth 1 -type f -name 'com.ginsu.dodo_*.deb' -print -quit)"
+          test -n "$DODO_DEB"
+          dpkg-deb -I "$DODO_DEB" | tee audit/dodo-package-info.txt
+          dpkg-deb -c "$DODO_DEB" | tee audit/dodo-package-files.txt
+          dpkg-deb -x "$DODO_DEB" extracted/dodo
+          grep -E '^Architecture: iphoneos-arm64e$' audit/dodo-package-info.txt
+          find extracted/dodo -type f \( -name 'Dodo.dylib' -o -name 'dodo' \) -print | tee audit/dodo-binaries.txt
+          test -s audit/dodo-binaries.txt
+          while IFS= read -r binary; do
+            file "$binary" | tee -a audit/dodo-file-types.txt
+            xcrun otool -L "$binary" | tee -a audit/dodo-linked-libraries.txt
+            xcrun otool -l "$binary" | grep -A 2 LC_RPATH | tee -a audit/dodo-rpaths.txt || true
+          done < audit/dodo-binaries.txt
+          grep -q 'arm64e' audit/dodo-file-types.txt
+
+      - name: Upload RootHide package and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dodo-roothide-arm64e-xsmax-${{ github.run_number }}
+          if-no-files-found: warn
+          path: |
+            packages/*.deb
+            logs/**
+            audit/**
