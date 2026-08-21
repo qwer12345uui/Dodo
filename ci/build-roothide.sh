@@ -22,6 +22,10 @@ SDK_REPO="$DEPS_DIR/theos-sdks"
 git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git "$SDK_REPO"
 git -C "$SDK_REPO" sparse-checkout set iPhoneOS15.6.sdk
 rm -rf "$THEOS/sdks/iPhoneOS15.6.sdk" "$PRIVATE_SDK"
+mkdir -p "$THEOS/sdks"
+# Theos discovers its SDK through $THEOS/sdks; private stubs are retained in
+# parallel for the SpringBoard interfaces absent from the public SDK.
+cp -R "$SDK_REPO/iPhoneOS15.6.sdk" "$THEOS/sdks/iPhoneOS15.6.sdk"
 cp -R "$SDK_REPO/iPhoneOS15.6.sdk" "$PRIVATE_SDK"
 find "$PRIVATE_SDK" -path '*SpringBoard.framework*' -print | head
 
