@@ -11,7 +11,7 @@ Dodo_FILES += $(shell find Sources/DodoLoader -name '*.m' -o -name '*.c' -o -nam
 # The restored weather implementation imports the separately packaged runtime
 # frameworks. Expose their module maps to Swift and link them into the tweak.
 Dodo_SWIFTFLAGS = -ISources/DodoC/include -F$(THEOS)/lib -I$(THEOS)/lib/GSCore.framework/Headers -I$(THEOS)/lib/Comet.framework/Headers -I$(THEOS)/lib/GSWeather.framework/Headers
-Dodo_LDFLAGS = -F$(THEOS)/lib -framework GSCore -framework Comet -framework GSWeather
+Dodo_LDFLAGS = -F$(THEOS)/lib -F$(THEOS)/sdks/iPhoneOS15.6.sdk/System/Library/PrivateFrameworks -framework GSCore -framework Comet -framework GSWeather
 Dodo_CFLAGS = -fobjc-arc -ISources/DodoC/include -ISources/DodoLoader/include
 
 include $(THEOS_MAKE_PATH)/tweak.mk
