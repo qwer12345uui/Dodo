@@ -1,6 +1,6 @@
 //
 //  WeatherView.ViewModel.swift
-//  
+//
 //
 //  Created by Noah Little on 22/11/2022.
 //
@@ -24,28 +24,28 @@ extension WeatherView {
         enum Constants {
             static let minMinutesForRefresh = 30
         }
-        
+
         @Published
         private(set) var celsiusWeatherString: String?
-        
+
         @Published
         private(set) var fahrenheitWeatherString: String?
-        
+
         @Published
         private(set) var celsiusHighLowString: String?
-        
+
         @Published
         private(set) var fahrenheitHighLowString: String?
-        
+
         @Published
         private(set) var isDisplayingCelsius = true
-        
+
         @Published
         private(set) var sunriseString: String?
-        
+
         @Published
         private(set) var sunsetString: String?
-        
+
         var weatherString: String? {
             guard let temp = isDisplayingCelsius ? celsiusWeatherString : fahrenheitWeatherString else { return nil }
             let highLow = isDisplayingCelsius ? celsiusHighLowString : fahrenheitHighLowString
@@ -54,34 +54,43 @@ extension WeatherView {
                 .joined(separator: " ")
             return result
         }
-        
+
         private var bag: Set<AnyCancellable> = []
         private var temperature = CurrentValueSubject<Temperature?, Never>(nil)
         private var high = CurrentValueSubject<Temperature?, Never>(nil)
         private var low = CurrentValueSubject<Temperature?, Never>(nil)
         private var location = CurrentValueSubject<CLLocation?, Never>(nil)
         private var weather = CurrentValueSubject<WeatherModel?, Never>(PreferenceManager.shared.defaults.weather(forKey: Keys.cachedWeather))
-        
+
         private let locationProvider: LocationProvider
         private let weatherProvider: WeatherProvider
         private let settings = PreferenceManager.shared.settings.weather
-        
+
         /// [FIX] 专用后台队列，所有 LocationProvider / WeatherProvider 调用都在这里执行，
         /// 避免在主线程上做 locationd XPC / 网络触发的同步工作。
         private let weatherQueue = DispatchQueue(label: "com.ginsu.dodo.weather", qos: .utility)
-        
+
         init() {
             self.locationProvider = .init()
             self.weatherProvider = .init()
-            
+
             if settings.tapAction == .celsiusToFahrenheit {
                 self.isDisplayingCelsius = PreferenceManager.shared.defaults.bool(forKey: Keys.isDisplayingCelsius)
             } else {
-                self.isDisplayingCelsius = currentTemperatureUnit() == .celsius
+                // WeatherService may synchronously consult WeatherFoundation. Keep the
+                // initial UI deterministic, then resolve the system unit off the
+                // SpringBoard main thread.
+                self.isDisplayingCelsius = true
+                weatherQueue.async { [weak self] in
+                    let systemUsesCelsius = self?.currentTemperatureUnit() == .celsius
+                    DispatchQueue.main.async {
+                        self?.isDisplayingCelsius = systemUsesCelsius
+                    }
+                }
             }
-            
+
             subscribe()
-            
+
             // [FIX] 原代码在主线程直接启动定位：
             //   locationProvider.set(isUpdatingLocation: true)
             // CLLocationManager 启动会同步与 locationd 握手，RootHide iOS 15 上可阻塞
@@ -91,11 +100,11 @@ extension WeatherView {
                 locationProvider.set(isUpdatingLocation: true)
             }
         }
-        
+
         func updateWeather() {
             guard canFetchWeather(), let location = location.value
             else { return }
-            
+
             // [FIX] 天气抓取放后台队列执行。
             weatherQueue.async { [weatherProvider] in
                 weatherProvider.fetchWeather(provider: .meteo(
@@ -104,7 +113,7 @@ extension WeatherView {
                 ))
             }
         }
-        
+
         func onTapWeather() {
             switch settings.tapAction {
             case .celsiusToFahrenheit:
@@ -117,7 +126,7 @@ extension WeatherView {
                 break
             }
         }
-        
+
         func openWeatherApp() {
             AppsManager.shared.open(app: .defined(.weather))
             HapticManager.playHaptic(withIntensity: .custom(.medium))
@@ -129,7 +138,7 @@ extension WeatherView {
 
 private extension WeatherView.ViewModel {
     typealias TemperatureUnit = WeatherProvider.TemperatureUnit
-    
+
     func subscribe() {
         // Store weather locally
         weatherProvider.currentWeatherPublisher
@@ -137,7 +146,7 @@ private extension WeatherView.ViewModel {
             .compactMap { $0 }
             .sink { [weak self] in self?.weather.send($0)}
             .store(in: &bag)
-        
+
         // Store weather locally for display
         weather
             .compactMap { model -> (celsius: String, fahrenheit: String)? in
@@ -154,7 +163,7 @@ private extension WeatherView.ViewModel {
                 self?.fahrenheitWeatherString = fahrenheit
             }
             .store(in: &bag)
-        
+
         // Store high/low locally for display
         if settings.isVisibleHighLow {
             weather
@@ -163,7 +172,7 @@ private extension WeatherView.ViewModel {
                           let high = model?.high,
                           let low = model?.low
                     else { return nil }
-                    
+
                     return (
                         highLowStringBuilder(high: high, low: low, isCelsius: true),
                         highLowStringBuilder(high: high, low: low, isCelsius: false)
@@ -175,7 +184,7 @@ private extension WeatherView.ViewModel {
                 }
                 .store(in: &bag)
         }
-        
+
         if settings.isVisibleSunriseSunset {
             weather
                 .compactMap { model -> (sunrise: String, sunset: String)? in
@@ -191,7 +200,7 @@ private extension WeatherView.ViewModel {
                 }
                 .store(in: &bag)
         }
-        
+
         // Enable/Disable location monitoring depending on screen on state
         // [FIX] 屏幕开关时的定位切换同样不能在主线程同步执行。
         LocalState.shared.$isScreenOff
@@ -202,23 +211,26 @@ private extension WeatherView.ViewModel {
                 }
             }
             .store(in: &bag)
-        
+
         // Store location locally
         locationProvider.locationPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.location.send($0)}
             .store(in: &bag)
-        
-        // Caching
+
+        // Caching can serialize a fairly large weather model. Keep this I/O on the
+        // dedicated queue so a push-triggered lock-screen relayout never waits for
+        // preferences storage on SpringBoard's main thread.
         weather
+            .receive(on: weatherQueue)
             .sink { PreferenceManager.shared.defaults.set(weather: $0, forKey: Keys.cachedWeather) }
             .store(in: &bag)
-        
+
         $isDisplayingCelsius
             .sink { PreferenceManager.shared.defaults.set($0, forKey: Keys.isDisplayingCelsius) }
             .store(in: &bag)
     }
-    
+
     func canFetchWeather() -> Bool {
         guard let weather = weather.value else { return true }
         let minutes = Calendar.current.dateComponents(
@@ -228,17 +240,17 @@ private extension WeatherView.ViewModel {
         ).minute ?? .zero
         return minutes >= Constants.minMinutesForRefresh
     }
-    
+
     func currentTemperatureUnit() -> TemperatureUnit? {
         guard let provider = WeatherService.shared()?.temperatureUnitProvider else { return nil }
-        
+
         switch provider.userTemperatureUnit {
         case 2: return .celsius
         case 1: return .fahrenheit
         default: return nil
         }
     }
-    
+
     func highLowStringBuilder(high: Temperature, low: Temperature, isCelsius: Bool) -> String {
         let highTemp = isCelsius ? high.celsius : high.fahrenheit
         let lowTemp = isCelsius ? low.celsius : low.fahrenheit
