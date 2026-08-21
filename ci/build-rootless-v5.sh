@@ -83,7 +83,7 @@ cd "$ROOT_DIR"
 echo "== Build Dodo 5.0.1 rootless arm64e package =="
 make package \
     ROOTLESS=1 ROOTHIDE=0 THEOS_PACKAGE_SCHEME=rootless \
-    TARGET=iphone:clang:latest:15.0 SDKVERSION=15.6 ARCHS=arm64e FINALPACKAGE=1 -j"$NCPU"
+    TARGET=iphone:clang:15.6:15.0 ARCHS=arm64e FINALPACKAGE=1 -j"$NCPU"
 
 find "$ROOT_DIR/packages" -maxdepth 1 -type f -name '*.deb' -print -exec cp {} "$ROOT_DIR/candidates/" \;
 if ! find "$ROOT_DIR/candidates" -maxdepth 1 -type f -name 'com.ginsu.dodo_5.0.1_iphoneos-arm64e.deb' | grep -q .; then
