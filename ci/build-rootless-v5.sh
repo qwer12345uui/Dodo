@@ -19,11 +19,14 @@ build_dependency() {
     echo "== Fetch $name ($ref) =="
     git clone --depth 1 --branch "$ref" "$source" "$directory"
 
-    echo "== Build $name for rootless =="
+    echo "== Build $name framework for rootless =="
     make -C "$directory" clean || true
-    make -C "$directory" package \
+    # Dodo only needs each framework at link time. Building a dependency package
+    # can fail in an unrelated staging hook even after its framework archive was
+    # produced, so build the framework target directly and copy that output.
+    make -C "$directory" \
         ROOTLESS=1 ROOTHIDE=0 THEOS_PACKAGE_SCHEME=rootless \
-        TARGET=iphone:clang:latest:15.0 FINALPACKAGE=1 -j"$NCPU"
+        TARGET=iphone:clang:latest:15.0 -j"$NCPU"
 
     local framework
     framework="$(find "$directory" -type d -name "$name.framework" ! -path '*dSYM*' | head -n 1 || true)"
