@@ -1,34 +1,18 @@
+export THEOS_PLATFORM_SDK_ROOT=/Applications/Xcode-15.4.0.app/Contents/Developer
+export PREFIX=$(THEOS_PLATFORM_SDK_ROOT)/Toolchains/XcodeDefault.xctoolchain/usr/bin/
+export ARCHS = arm64 arm64e
+export TARGET = iphone:clang:16.5:14.5
+
 ROOTLESS ?= 0
-
-ARCHS = arm64 arm64e
-THEOS_DEVICE_IP = localhost -p 2222
 INSTALL_TARGET_PROCESSES = SpringBoard
-TARGET = iphone:clang:17.0.2:14.5
-PACKAGE_VERSION = 4.2.2
+PACKAGE_VERSION = 5.0.0
 
-Dodo_SWIFTFLAGS = -ISources/DodoC/include
-
-# Rootless / Rootful settings
 ifeq ($(ROOTLESS),1)
-	THEOS_PACKAGE_SCHEME = rootless
-	# Control
-	PKG_NAME_SUFFIX = (Rootless)
+	export THEOS_PACKAGE_SCHEME = rootless
 endif
 
 include $(THEOS)/makefiles/common.mk
 
-TWEAK_NAME = Dodo
-
-Dodo_PRIVATE_FRAMEWORKS = SpringBoard SpringBoardServices SpringBoardFoundation MediaRemote MobileTimer SpringBoardUI CoverSheet WeatherFoundation
-Dodo_FILES = $(shell find Sources/Dodo -name '*.swift') $(shell find Sources/DodoC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
-Dodo_CFLAGS = -fobjc-arc -ISources/DodoC/include
-
-include $(THEOS_MAKE_PATH)/tweak.mk
-SUBPROJECTS += dodo
+SUBPROJECTS += Dodo
+SUBPROJECTS += DodoPrefs
 include $(THEOS_MAKE_PATH)/aggregate.mk
-
-before-package::
-	# Append values to control file
-	$(ECHO_NOTHING)sed -i '' \
-		-e 's/\$${PKG_NAME_SUFFIX}/$(PKG_NAME_SUFFIX)/g' \
-		$(THEOS_STAGING_DIR)/DEBIAN/control$(ECHO_END)

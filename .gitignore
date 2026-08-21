@@ -1,11 +1,20 @@
 .DS_Store
-/.build
-/Packages
-/*.xcodeproj
-xcuserdata/
 
-.theos
+# SwiftPM
+.build
 .swiftpm
-dodo/.theos
-dodo/.swiftpm
-/packages
+.netrc
+
+# Theos
+.theos
+packages/
+
+# Xcode
+*.xcodeproj
+xcuserdata/
+DerivedData/
+
+# Editor / SourceKit
+.sourcekit-lsp/
+.vscode/
+compile_commands.json

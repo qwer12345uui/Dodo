@@ -1,0 +1,4 @@
+module DodoPrefsC {
+    umbrella "."
+    export *
+}
