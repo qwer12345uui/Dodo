@@ -1,6 +1,6 @@
 //
 //  MainContent.swift
-//  
+//
 //
 //  Created by Noah Little on 19/11/2022.
 //
@@ -13,7 +13,7 @@ struct MainContent: View {
     @Environment(\.isVisibleLockScreen) var isVisibleLockScreen
     @Environment(\.isLandscape) var isLandscape
     @State private var infoViewFrame: CGRect = .zero
-    
+
     private let settings = PreferenceManager.shared.settings
 
     var body: some View {
@@ -44,7 +44,7 @@ private extension MainContent {
         )
         .readFrame(for: $infoViewFrame)
     }
-    
+
     @ViewBuilder
     var favouriteApps: some View {
         if settings.favouriteApps.hasFavouriteApps, !isLandscape {
@@ -61,12 +61,11 @@ private extension MainContent {
                 )
         }
     }
-    
+
     @ViewBuilder
     var weatherView: some View {
-        EmptyView()
-//        if settings.weather.showWeather {
-//            WeatherView()
-//        }
+        if settings.weather.showWeather {
+            WeatherView()
+        }
     }
 }
