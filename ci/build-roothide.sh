@@ -92,6 +92,27 @@ public struct Ecosystem {
 }
 SWIFT
 
+# Comet's resource bundle lookup also imports libroot. Resolve the framework
+# location from the loaded Mach-O image on RootHide, exactly as GSCore does.
+cat > "$DEPS_DIR/Comet/Sources/Comet/Core/Extensions/Bundle+Comet.swift" <<'SWIFT'
+import Foundation
+
+private final class CometPathToken: NSObject {}
+
+internal extension Bundle {
+    static var comet: Bundle {
+        #if ROOTHIDE
+        let frameworkDirectory = Bundle(for: CometPathToken.self).bundlePath
+        return Bundle(path: frameworkDirectory + "/.jbroot/Library/Frameworks/Comet.framework/Bundle.bundle/")!
+        #elseif ROOTLESS
+        return Bundle(path: "/var/jb/Library/Frameworks/Comet.framework/Bundle.bundle/")!
+        #else
+        return Bundle(path: "/Library/Frameworks/Comet.framework/Bundle.bundle/")!
+        #endif
+    }
+}
+SWIFT
+
 copy_framework() {
     local name="$1"
     local source=""
