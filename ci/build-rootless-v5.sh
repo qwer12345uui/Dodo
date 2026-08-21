@@ -28,6 +28,13 @@ build_dependency() {
     echo "== Fetch $name ($ref) =="
     git clone --depth 1 --branch "$ref" "$source" "$directory"
 
+    # Current GSCore migration sources retain one iOS 16-only URL initializer.
+    # Patch it in the CI checkout so the framework remains deployable on iOS 15.
+    if [[ "$name" == "GSCore" ]]; then
+        perl -0pi -e 's/\.init\(filePath: tweak\.prefsPath\)/.init(fileURLWithPath: tweak.prefsPath)/g' \
+            "$directory/Sources/GSCore/Core/Ecosystem/Tweaks/TweakDescriptor.swift"
+    fi
+
     echo "== Build $name framework for rootless =="
     make -C "$directory" clean || true
     # Dodo only needs each framework at link time. Building a dependency package
