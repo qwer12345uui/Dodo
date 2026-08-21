@@ -191,6 +191,8 @@ make package \
     ROOTHIDE=1 ROOTLESS=0 \
     THEOS_PACKAGE_SCHEME=roothide \
     TARGET=iphone:clang:latest:15.0 \
+    TARGET_PRIVATE_FRAMEWORK_PATH="$PRIVATE_SDK/System/Library/PrivateFrameworks" \
+    TARGET_PRIVATE_FRAMEWORK_INCLUDE_PATH="$PRIVATE_SDK/System/Library/PrivateFrameworks" \
     FINALPACKAGE=1 \
     -j"$NCPU"
 
