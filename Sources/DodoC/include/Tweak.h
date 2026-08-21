@@ -1,5 +1,4 @@
 #import <UIKit/UIKit.h>
-#import <PeterDev/libpddokdo.h>
 #import <AVKit/AVKit.h>
 #import <CoreLocation/CoreLocation.h>
 #include "MediaRemote.h"
