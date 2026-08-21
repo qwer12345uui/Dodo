@@ -25,9 +25,13 @@ include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = dodo
 
+# Keep Swift UIKit overlay symbols resolvable for the preference bundle too.
+XCODE_SWIFT_LIB = $(dir $(shell xcrun --sdk iphoneos -f swiftc))../lib/swift/iphoneos
 dodo_FILES = $(shell find Sources/dodo -name '*.swift') $(shell find Sources/dodoC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
 dodo_SWIFTFLAGS += -ISources/dodoC/include
 dodo_INSTALL_PATH = /Library/PreferenceBundles
+dodo_LDFLAGS += -L$(XCODE_SWIFT_LIB)
+dodo_LIBRARIES += swiftUIKit
 dodo_CFLAGS += -fobjc-arc
 
 include $(THEOS_MAKE_PATH)/bundle.mk
