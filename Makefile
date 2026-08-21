@@ -1,7 +1,7 @@
-export THEOS_PLATFORM_SDK_ROOT=/Applications/Xcode-15.4.0.app/Contents/Developer
-export PREFIX=$(THEOS_PLATFORM_SDK_ROOT)/Toolchains/XcodeDefault.xctoolchain/usr/bin/
-export ARCHS = arm64 arm64e
-export TARGET = iphone:clang:16.5:14.5
+# Let Theos discover the active Xcode SDK instead of pinning a host-specific
+# Xcode 15.4 path. This supports current macOS builders and local toolchains.
+ARCHS = arm64 arm64e
+TARGET = iphone:clang:latest:14.5
 
 ROOTLESS ?= 0
 INSTALL_TARGET_PROCESSES = SpringBoard
