@@ -5,6 +5,11 @@ ROOT_DIR="${GITHUB_WORKSPACE:-$(pwd)}"
 DEPS_DIR="${RUNNER_TEMP:-/tmp}/dodo-roothide-deps"
 THEOS="${THEOS:-$ROOT_DIR/theos}"
 export THEOS
+# GitHub's macOS image exposes Xcode as Xcode_15.4.app while several upstream
+# dependencies still hard-code Xcode-15.4.0.app. Use the active developer
+# directory consistently for their compiler, linker, Swift support and xcrun.
+export DEVELOPER_DIR="${DEVELOPER_DIR:-$(xcode-select -p)}"
+XCODE_TOOLCHAIN_PREFIX="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/"
 NCPU="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 PRIVATE_SDK="$THEOS/private-sdks/iPhoneOS15.6.sdk"
 
@@ -103,6 +108,9 @@ build_xcode_framework() {
     echo "== Build $name for RootHide =="
     make -C "$directory" clean || true
     make -C "$directory" package \
+        DEVELOPER_DIR="$DEVELOPER_DIR" \
+        THEOS_PLATFORM_SDK_ROOT="$DEVELOPER_DIR" \
+        PREFIX="$XCODE_TOOLCHAIN_PREFIX" \
         THEOS_PACKAGE_SCHEME=roothide \
         ROOTHIDE=1 ROOTLESS=0 FINALPACKAGE=1 \
         "$install_var=/Library/Frameworks" \
