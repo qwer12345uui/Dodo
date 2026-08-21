@@ -126,7 +126,14 @@ private extension Container {
     }
     
     func updateFrame(_ frame: CGRect) {
+        guard frame.width.isFinite,
+              frame.height.isFinite,
+              !frame.equalTo(localState.dodoFrame) else {
+            return
+        }
+
         DispatchQueue.main.async {
+            guard !frame.equalTo(localState.dodoFrame) else { return }
             localState.dodoFrame = frame
             NotificationCenter.default.post(
                 name: .didUpdateHeight,

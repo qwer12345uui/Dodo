@@ -2,7 +2,7 @@
 //  LayoutHooks.swift
 //  Dodo
 //
-//  Created by Noah Little on 12/8/2026.
+//  Stabilized notification positioning for iOS 15.
 //
 
 import DodoC
@@ -26,10 +26,8 @@ final class LayoutHooks {
             target.view.addSubview(dodoController.view)
             dodoController.didMove(toParent: target)
 
-            // Create a reference to the trailing anchor because it changes depending on device orientation.
+            // Keep a reference because the trailing anchor changes with rotation.
             trailingConstraint = dodoController.view.trailingAnchor.constraint(equalTo: target.view.trailingAnchor)
-            
-            // Activate these constraints once.
             NSLayoutConstraint.activate([
                 dodoController.view.bottomAnchor.constraint(equalTo: target.view.bottomAnchor),
                 dodoController.view.leadingAnchor.constraint(equalTo: target.view.leadingAnchor)
@@ -46,22 +44,25 @@ final class LayoutHooks {
         @Hook("_listViewDefaultContentInsets")
         func _listViewDefaultContentInsets() -> UIEdgeInsets {
             var insets = orig._listViewDefaultContentInsets()
-            
             guard !LocalState.shared.isLandscape else { return insets }
             
-            insets.bottom = LocalState.shared.dodoFrame.height + 50
+            // Preserve the system-provided inset (which can grow while a test
+            // notification is presented) and only reserve the additional Dodo area
+            // once its frame has been measured.
+            let dodoHeight = LocalState.shared.dodoFrame.height
+            if dodoHeight.isFinite, dodoHeight > 0 {
+                insets.bottom = max(insets.bottom, dodoHeight + 50)
+            }
             
             guard PreferenceManager.shared.settings.mediaPlayer.timeMediaPlayerStyle != .mediaPlayer else {
                 return insets
             }
             
-            insets.top -= dodoNotificationVerticalOffset()
+            // A malformed preference must not create a negative system inset.
+            let configuredOffset = PreferenceManager.shared.settings.dimensions.notificationVerticalOffset
+            let offset = configuredOffset.isFinite ? max(0, min(configuredOffset, 1000)) : 0
+            insets.top = max(0, insets.top - offset)
             return insets
-        }
-        
-        private func dodoNotificationVerticalOffset() -> Double {
-            guard !LocalState.shared.isLandscape else { return 0 }
-            return PreferenceManager.shared.settings.dimensions.notificationVerticalOffset
         }
     }
 }

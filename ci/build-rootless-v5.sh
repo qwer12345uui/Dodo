@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="${GITHUB_WORKSPACE:-$(cd "$(dirname "$0")/.." && pwd)}"
+THEOS="${THEOS:-$ROOT_DIR/theos}"
+DEPS_DIR="${RUNNER_TEMP:-/tmp}/dodo-v5-deps"
+NCPU="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+export THEOS
+
+rm -rf "$DEPS_DIR" "$ROOT_DIR/.theos" "$ROOT_DIR/packages" "$ROOT_DIR/candidates"
+mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/rootless" "$ROOT_DIR/candidates"
+
+build_dependency() {
+    local name="$1"
+    local source="$2"
+    local ref="$3"
+    local directory="$DEPS_DIR/$name"
+
+    echo "== Fetch $name ($ref) =="
+    git clone --depth 1 --branch "$ref" "$source" "$directory"
+
+    echo "== Build $name for rootless =="
+    make -C "$directory" clean || true
+    make -C "$directory" package \
+        ROOTLESS=1 ROOTHIDE=0 THEOS_PACKAGE_SCHEME=rootless \
+        TARGET=iphone:clang:latest:15.0 FINALPACKAGE=1 -j"$NCPU"
+
+    local framework
+    framework="$(find "$directory" -type d -name "$name.framework" ! -path '*dSYM*' | head -n 1 || true)"
+    if [[ -z "$framework" ]]; then
+        echo "ERROR: $name.framework was not produced" >&2
+        exit 1
+    fi
+
+    rm -rf "$THEOS/lib/$name.framework" "$THEOS/lib/iphone/rootless/$name.framework"
+    cp -R "$framework" "$THEOS/lib/$name.framework"
+    cp -R "$framework" "$THEOS/lib/iphone/rootless/$name.framework"
+}
+
+build_dependency GSCore https://github.com/qwer12345uui/GSCore.git migration/ios15-rootless-roothide
+build_dependency Comet https://github.com/qwer12345uui/Comet.git migration/ios15-rootless-roothide
+build_dependency GSWeather https://github.com/ginsudev/GSWeather.git main
+
+ORION_STUB="$THEOS/vendor/lib/Orion.framework"
+if [[ ! -d "$ORION_STUB" ]]; then
+    echo "ERROR: Theos Orion framework stub is unavailable" >&2
+    exit 1
+fi
+rm -rf "$THEOS/lib/Orion.framework" "$THEOS/lib/iphone/rootless/Orion.framework"
+cp -R "$ORION_STUB" "$THEOS/lib/Orion.framework"
+cp -R "$ORION_STUB" "$THEOS/lib/iphone/rootless/Orion.framework"
+
+cd "$ROOT_DIR"
+echo "== Build Dodo 5.0.1 rootless arm64e package =="
+make package \
+    ROOTLESS=1 ROOTHIDE=0 THEOS_PACKAGE_SCHEME=rootless \
+    TARGET=iphone:clang:latest:15.0 ARCHS=arm64e FINALPACKAGE=1 -j"$NCPU"
+
+find "$ROOT_DIR/packages" -maxdepth 1 -type f -name '*.deb' -print -exec cp {} "$ROOT_DIR/candidates/" \;
+if ! find "$ROOT_DIR/candidates" -maxdepth 1 -type f -name 'com.ginsu.dodo_5.0.1_iphoneos-arm64e.deb' | grep -q .; then
+    echo "ERROR: expected Dodo 5.0.1 arm64e package was not produced" >&2
+    find "$ROOT_DIR/candidates" -maxdepth 1 -type f -name '*.deb' -print >&2
+    exit 1
+fi
+
+dpkg-deb -I "$ROOT_DIR/candidates/com.ginsu.dodo_5.0.1_iphoneos-arm64e.deb"
+dpkg-deb -c "$ROOT_DIR/candidates/com.ginsu.dodo_5.0.1_iphoneos-arm64e.deb"

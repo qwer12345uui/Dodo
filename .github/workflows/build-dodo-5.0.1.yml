@@ -1,0 +1,57 @@
+name: Build Dodo 5.0.1 Rootless
+
+on:
+  push:
+    branches:
+      - fix/5.0.1-stability
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Theos and signing tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --recurse-submodules --depth 1 https://github.com/theos/theos.git "$GITHUB_WORKSPACE/theos"
+          brew install ldid
+          echo "THEOS=$GITHUB_WORKSPACE/theos" >> "$GITHUB_ENV"
+          mkdir -p logs audit extracted
+          xcodebuild -version | tee logs/toolchain.txt
+          swiftc --version | tee -a logs/toolchain.txt
+
+      - name: Build rootless arm64e package
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x ci/build-rootless-v5.sh
+          ci/build-rootless-v5.sh 2>&1 | tee logs/build-rootless-v5.log
+
+      - name: Validate package metadata and payload
+        shell: bash
+        run: |
+          set -euxo pipefail
+          PACKAGE="candidates/com.ginsu.dodo_5.0.1_iphoneos-arm64e.deb"
+          dpkg-deb -I "$PACKAGE" | tee audit/package-info.txt
+          dpkg-deb -c "$PACKAGE" | tee audit/package-files.txt
+          dpkg-deb -x "$PACKAGE" extracted/dodo
+          test -f extracted/dodo/var/jb/Library/MobileSubstrate/DynamicLibraries/Dodo.dylib
+          file extracted/dodo/var/jb/Library/MobileSubstrate/DynamicLibraries/Dodo.dylib | tee audit/dylib-file.txt
+          xcrun otool -L extracted/dodo/var/jb/Library/MobileSubstrate/DynamicLibraries/Dodo.dylib | tee audit/dylib-libraries.txt
+
+      - name: Upload package and build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: dodo-5.0.1-rootless-arm64e-${{ github.run_number }}
+          if-no-files-found: error
+          path: |
+            candidates/com.ginsu.dodo_5.0.1_iphoneos-arm64e.deb
+            logs/**
+            audit/**

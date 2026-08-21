@@ -64,9 +64,8 @@ private extension MainContent {
     
     @ViewBuilder
     var weatherView: some View {
-        EmptyView()
-//        if settings.weather.showWeather {
-//            WeatherView()
-//        }
+        if settings.weather.showWeather {
+            WeatherView()
+        }
     }
 }
