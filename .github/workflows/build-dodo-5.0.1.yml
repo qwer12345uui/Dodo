@@ -23,7 +23,7 @@ jobs:
           git clone --recurse-submodules --depth 1 https://github.com/theos/theos.git "$GITHUB_WORKSPACE/theos"
           git clone --recurse-submodules --depth 1 https://github.com/ginsudev/Shook.git "$GITHUB_WORKSPACE/theos/mod/shook"
           test -f "$GITHUB_WORKSPACE/theos/mod/shook/Package.swift"
-          brew install ldid
+          brew install ldid dpkg
           echo "THEOS=$GITHUB_WORKSPACE/theos" >> "$GITHUB_ENV"
           mkdir -p logs audit extracted
           xcodebuild -version | tee logs/toolchain.txt
