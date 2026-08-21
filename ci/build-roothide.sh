@@ -14,7 +14,14 @@ NCPU="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 PRIVATE_SDK="$THEOS/private-sdks/iPhoneOS15.6.sdk"
 
 rm -rf "$DEPS_DIR"
-mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/roothide" "$THEOS/private-sdks"
+mkdir -p "$DEPS_DIR" "$THEOS/lib/iphone/roothide" "$THEOS/private-sdks" "$THEOS/mod"
+
+# New upstream Dodo uses Shook Swift macros. RootHide Theos does not bundle the
+# module, so install the author-maintained module source at the canonical path.
+rm -rf "$THEOS/mod/shook"
+git clone --depth 1 https://github.com/ginsudev/Shook.git "$THEOS/mod/shook"
+test -f "$THEOS/mod/shook/Package.swift"
+test -f "$THEOS/mod/shook/instance/rules.mk"
 
 echo "== Toolchain =="
 xcodebuild -version
