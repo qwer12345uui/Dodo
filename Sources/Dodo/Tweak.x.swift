@@ -9,53 +9,60 @@ struct MediaiOS14: HookGroup {}
 // MARK: - Dodo view
 class CSCombinedListViewController_Hook: ClassHook<CSCombinedListViewController> {
     typealias Group = Main
-    
+
     @Property (.nonatomic, .retain) var dodoController: DDBaseController = .init()
     @Property (.nonatomic, .retain) var trailingConstraint = NSLayoutConstraint()
-    
+
     func viewDidLoad() {
         orig.viewDidLoad()
-        
+
         // Init Dodo base controller
         dodoController.view.translatesAutoresizingMaskIntoConstraints = false
         target.addChild(dodoController)
         target.view.addSubview(dodoController.view)
-        
+
         // Create a reference to the trailing anchor because it changes depending on device orientation.
         trailingConstraint = dodoController.view.trailingAnchor.constraint(equalTo: target.view.trailingAnchor)
-        
+
         // Activate these constraints once.
         NSLayoutConstraint.activate([
             dodoController.view.bottomAnchor.constraint(equalTo: target.view.bottomAnchor),
             dodoController.view.leadingAnchor.constraint(equalTo: target.view.leadingAnchor)
         ])
     }
-    
+
     func viewWillAppear(_ animated: Bool) {
         orig.viewWillAppear(animated)
         trailingConstraint.isActive = !LocalState.shared.isLandscape
         target.view.setNeedsLayout()
     }
-    
+
     func _listViewDefaultContentInsets() -> UIEdgeInsets {
         var insets = orig._listViewDefaultContentInsets()
-        
+
         guard !LocalState.shared.isLandscape else { return insets }
-        
-        insets.bottom = LocalState.shared.dodoFrame.height + 50
-        
+
+        // Keep the system reservation when Dodo has not completed its first layout and
+        // never reduce the space reserved for the lock-screen controls.
+        insets.bottom = max(insets.bottom, LocalState.shared.dodoFrame.height + 50)
+
         guard PreferenceManager.shared.settings.mediaPlayer.timeMediaPlayerStyle != .mediaPlayer else {
             return insets
         }
-        
-        insets.top -= dodoNotificationVerticalOffset()
+
+        // On iPhone XS Max the iOS 15 list can be queried before its final safe-area
+        // insets are installed. Clamp Dodo's user-configurable offset so notification
+        // cards retain the reference layout: below the notch and above Dodo content.
+        let requestedOffset = dodoNotificationVerticalOffset()
+        let minimumTopInset = max(target.view.safeAreaInsets.top + 8, 1)
+        insets.top = max(minimumTopInset, insets.top - requestedOffset)
         return insets
     }
-    
+
     //orion: new
-    func dodoNotificationVerticalOffset() -> Double {
+    func dodoNotificationVerticalOffset() -> CGFloat {
         guard !LocalState.shared.isLandscape else { return 0 }
-        return PreferenceManager.shared.settings.dimensions.notificationVerticalOffset
+        return max(0, PreferenceManager.shared.settings.dimensions.notificationVerticalOffset)
     }
 }
 
@@ -66,11 +73,11 @@ class SpringBoard_Hook: ClassHook<SpringBoard> {
 
     func applicationDidFinishLaunching(_ application: AnyObject) {
         orig.applicationDidFinishLaunching(application)
-        
+
         guard PreferenceManager.shared.settings.mediaPlayer.timeMediaPlayerStyle != .time else {
             return
         }
-        
+
         /* If media plays through a respring, we need this code to update the media info when SpringBoard
          launches so that the play/pause button shows the correct image. */
         SBMediaController.sharedInstance().setNowPlayingInfo(0)
@@ -81,7 +88,7 @@ class SpringBoard_Hook: ClassHook<SpringBoard> {
 
 class CSAdjunctListModel_Hook: ClassHook<CSAdjunctListModel> {
     typealias Group = MediaiOS15
-    
+
     func addOrUpdateItem(_ item: AnyObject) {
         // Never show the default ls media player
         guard PreferenceManager.shared.settings.mediaPlayer.timeMediaPlayerStyle != .time,
@@ -116,7 +123,7 @@ class SBUIPreciseClockTimer_Hook: ClassHook<SBUIPreciseClockTimer> {
 
 class SBLockScreenPluginManager_Hook: ClassHook<NSObject> {
     static var targetName: String = "SBLockScreenPluginManager"
-    
+
     func setEnabled(_ enabled: Bool) {
         orig.setEnabled(enabled)
         LocalState.shared.isScreenOff = !enabled
@@ -133,7 +140,7 @@ class SBFLockScreenDateView_Hook: ClassHook<SBFLockScreenDateView> {
         guard PreferenceManager.shared.settings.mediaPlayer.timeMediaPlayerStyle != .mediaPlayer else {
             return
         }
-        
+
         target.removeFromSuperview()
     }
 }
@@ -161,11 +168,11 @@ class SBUIProudLockIconView_Hook: ClassHook<SBUIProudLockIconView> {
 
     func didMoveToWindow() {
         orig.didMoveToWindow()
-        
+
         guard PreferenceManager.shared.settings.mediaPlayer.timeMediaPlayerStyle != .mediaPlayer else {
             return
         }
-        
+
         target.removeFromSuperview()
     }
 }
@@ -200,58 +207,105 @@ class CSCoverSheetViewController_Hook: ClassHook<CSCoverSheetViewController> {
 
 class NCNotificationStructuredListViewController_Hook: ClassHook<NCNotificationStructuredListViewController> {
     typealias Group = Main
-    
+
     @Property(.nonatomic, .retain) var cropFrame = CAGradientLayer()
 
     func viewDidLoad() {
         orig.viewDidLoad()
-        
+
+        // Height updates arrive while iOS is laying out newly received push cards.
+        // Do not mutate the mask in that synchronous notification callback.
         NotificationCenter.default.addObserver(
             target,
-            selector: #selector(dodoSetupMask),
+            selector: #selector(dodoScheduleMask),
             name: .didUpdateHeight,
             object: nil
         )
-        
+
         cropFrame = CAGradientLayer()
-        cropFrame.frame = target.view.bounds
         cropFrame.colors = [UIColor.white.cgColor, UIColor.clear.cgColor]
     }
-    
+
     func viewDidAppear(_ animated: Bool) {
         orig.viewDidAppear(animated)
+        dodoScheduleMask()
+    }
+
+    func viewDidLayoutSubviews() {
+        orig.viewDidLayoutSubviews()
+        dodoScheduleMask()
+    }
+
+    func viewWillDisappear(_ animated: Bool) {
+        orig.viewWillDisappear(animated)
+        NSObject.cancelPreviousPerformRequests(
+            withTarget: target,
+            selector: #selector(dodoSetupMask),
+            object: nil
+        )
+    }
+
+    //orion: new
+    func dodoScheduleMask() {
         guard !LocalState.shared.isLandscape else {
             target.view.layer.mask = nil
             return
         }
-        
-        dodoSetupMask()
+
+        // Coalesce bursts from several notifications into one post-layout update. This
+        // breaks the synchronous chain: notification insertion -> Dodo frame update ->
+        // layer mask mutation -> another notification-list layout.
+        NSObject.cancelPreviousPerformRequests(
+            withTarget: target,
+            selector: #selector(dodoSetupMask),
+            object: nil
+        )
+        target.perform(#selector(dodoSetupMask), with: nil, afterDelay: 0)
     }
-    
+
     //orion: new
     func dodoSetupMask() {
-        // [FIX] bounds 为空（视图尚未完成布局）时直接返回，避免计算出非法 mask 参数。
-        let screenHeight = target.view.bounds.maxY
-        guard screenHeight > 0 else { return }
-        
-        let androBarHeight = PreferenceManager.shared.settings.dimensions.androBarHeight
-        let startY: CGFloat = (LocalState.shared.dodoFrame.minY - androBarHeight - 50) / screenHeight
-        let endY: CGFloat = (LocalState.shared.dodoFrame.minY - androBarHeight) / screenHeight
-        let newStart = CGPoint(x: 0.5, y: startY)
-        let newEnd = CGPoint(x: 0.5, y: endY)
-        
-        // [FIX] 参数未变化且 mask 已是 cropFrame 时跳过赋值。
-        // 原实现每次 .didUpdateHeight 广播都重设 layer.mask，会触发通知列表重新布局，
-        // 与 Container.updateFrame 的广播叠加形成主线程布局反馈环（下拉通知中心时放大）。
-        if target.view.layer.mask === cropFrame,
-           cropFrame.startPoint.equalTo(newStart),
-           cropFrame.endPoint.equalTo(newEnd) {
+        guard !LocalState.shared.isLandscape,
+              target.view.window != nil
+        else {
+            target.view.layer.mask = nil
             return
         }
-        
-        target.view.layer.mask = cropFrame
-        cropFrame.startPoint = newStart
-        cropFrame.endPoint = newEnd
+
+        let bounds = target.view.bounds.integral
+        let screenHeight = bounds.height
+        guard screenHeight > 0 else { return }
+
+        let androBarHeight = PreferenceManager.shared.settings.dimensions.androBarHeight
+        let rawStartY = (LocalState.shared.dodoFrame.minY - androBarHeight - 50) / screenHeight
+        let rawEndY = (LocalState.shared.dodoFrame.minY - androBarHeight) / screenHeight
+        let startY = min(max(rawStartY, 0), 1)
+        let endY = min(max(rawEndY, startY), 1)
+        let newStart = CGPoint(x: 0.5, y: startY)
+        let newEnd = CGPoint(x: 0.5, y: endY)
+
+        // Avoid assigning a layer property unless the visual result will change. In
+        // particular, assigning layer.mask while UIKit is inserting a push card causes
+        // iOS 15's structured notification list to request another layout pass.
+        let needsFrameUpdate = !cropFrame.frame.equalTo(bounds)
+        let needsMaskAssignment = target.view.layer.mask !== cropFrame
+        let needsGradientUpdate = !cropFrame.startPoint.equalTo(newStart)
+            || !cropFrame.endPoint.equalTo(newEnd)
+        guard needsFrameUpdate || needsMaskAssignment || needsGradientUpdate else { return }
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if needsFrameUpdate {
+            cropFrame.frame = bounds
+        }
+        if needsGradientUpdate {
+            cropFrame.startPoint = newStart
+            cropFrame.endPoint = newEnd
+        }
+        if needsMaskAssignment {
+            target.view.layer.mask = cropFrame
+        }
+        CATransaction.commit()
     }
 }
 
@@ -266,7 +320,7 @@ class DNDNotificationsService_Hook: ClassHook<DNDNotificationsService> {
 
 class SBRingerControl_Hook: ClassHook<NSObject> {
     static var targetName: String = "SBRingerControl"
-    
+
     func setRingerMuted(_ isMuted: Bool) {
         orig.setRingerMuted(isMuted)
         NotificationCenter.default.post(
@@ -300,7 +354,7 @@ struct Dodo: Tweak {
         if readPrefs(),
            PreferenceManager.shared.settings.isEnabled {
             Main().activate()
-            
+
             if #available(iOS 15, *) {
                 MediaiOS15().activate()
             } else {

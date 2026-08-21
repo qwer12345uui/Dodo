@@ -1,0 +1,59 @@
+name: Gate Dodo iOS 15 rootless and RootHide build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - migration/ios15-rootless-roothide-20260816
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-gate:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - name: Check out migration branch
+        uses: actions/checkout@v4
+
+      - name: Record toolchain and source dependency evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p logs audit
+          xcodebuild -version | tee logs/toolchain.txt
+          xcrun --sdk iphoneos --show-sdk-path | tee -a logs/toolchain.txt
+          swiftc --version | tee -a logs/toolchain.txt
+          grep -RInE 'import (GSCore|Comet|GSWeather|Orion)' Sources dodo > audit/source-framework-imports.txt || true
+          cat control > audit/control.txt
+
+      - name: Stop when migration dependencies are unavailable
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat <<'EOF' | tee logs/dependency-gate.log
+          Dodo is intentionally not built in this run.
+
+          The source imports GSCore, Comet, GSWeather, and Orion. GSCore and
+          Comet are being migrated in separate repositories, but Dodo's required
+          com.ginsu.gsweather dependency is outside the authorized migration
+          scope and does not provide a reviewed iOS 15 RootHide build.
+
+          Producing a Dodo DEB without matching scheme-specific GSWeather and
+          Orion frameworks would create an untestable package and could leave
+          absolute or incompatible Mach-O dependencies. Per the migration policy,
+          this run stops before packaging rather than emitting a misleading
+          candidate.
+          EOF
+          exit 78
+
+      - name: Upload gate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dodo-ios15-dependency-gate-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            logs/**
+            audit/**
