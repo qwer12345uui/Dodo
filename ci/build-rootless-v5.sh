@@ -45,6 +45,13 @@ build_dependency() {
         cp "$swiftmodule" "$framework/Modules/$name.swiftmodule/arm64e-apple-ios.swiftmodule"
     fi
 
+    # Preserve the C submodule headers and module map imported by the framework's
+    # Swift module (for example GSCore imports GSCoreC).
+    mkdir -p "$framework/Headers"
+    while IFS= read -r header; do
+        cp "$header" "$framework/Headers/"
+    done < <(find "$directory/Sources" -type f -path '*C/include/*' -print)
+
     rm -rf "$THEOS/lib/$name.framework" "$THEOS/lib/iphone/rootless/$name.framework"
     cp -R "$framework" "$THEOS/lib/$name.framework"
     cp -R "$framework" "$THEOS/lib/iphone/rootless/$name.framework"
