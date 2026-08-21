@@ -71,6 +71,27 @@ internal extension String {
 }
 SWIFT
 
+# Current GSCore also imports libroot only to classify the jailbreak root. That
+# library is not part of RootHide's SDK and the value is not consumed by Dodo.
+# Keep the public enum API while avoiding an absolute-root dependency at link
+# time; filesystem paths above are resolved through the adjacent .jbroot link.
+cat > "$DEPS_DIR/GSCore/Sources/GSCore/Core/Ecosystem/Ecosystem.swift" <<'SWIFT'
+import Foundation
+
+public struct Ecosystem {
+    public enum JailbreakType: String {
+        case rootless = "/var/jb/"
+        case root = "/"
+    }
+
+    public static var jailbreakType: JailbreakType { .rootless }
+
+    public static func isInstalled(tweak: Tweak) -> Bool {
+        FileManager.default.fileExists(atPath: tweak.dylibPath)
+    }
+}
+SWIFT
+
 copy_framework() {
     local name="$1"
     local source=""
