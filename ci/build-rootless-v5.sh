@@ -33,6 +33,8 @@ build_dependency() {
     if [[ "$name" == "GSCore" ]]; then
         perl -0pi -e 's/\.init\(filePath: tweak\.prefsPath\)/.init(fileURLWithPath: tweak.prefsPath)/g' \
             "$directory/Sources/GSCore/Core/Ecosystem/Tweaks/TweakDescriptor.swift"
+        perl -0pi -e 's/import Foundation\n/import Foundation\nimport CoreGraphics\n/' \
+            "$directory/Sources/GSCore/Core/Ecosystem/Tweaks/Tweak+Preferences.swift"
     fi
 
     echo "== Build $name framework for rootless =="
