@@ -35,7 +35,7 @@ build_dependency() {
     # produced, so build the framework target directly and copy that output.
     make -C "$directory" \
         ROOTLESS=1 ROOTHIDE=0 THEOS_PACKAGE_SCHEME=rootless \
-        TARGET=iphone:clang:latest:15.0 ARCHS=arm64e -j"$NCPU"
+        TARGET=iphone:clang:15.6:15.0 ARCHS=arm64e -j"$NCPU"
 
     local framework
     framework="$(find "$directory" -type d -name "$name.framework" ! -path '*dSYM*' | head -n 1 || true)"
