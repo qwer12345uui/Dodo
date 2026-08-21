@@ -147,12 +147,19 @@ build_xcode_framework() {
     local directory="$2"
     local install_var="$3"
     local move_var="$4"
+    local prefix_arg="PREFIX=$XCODE_TOOLCHAIN_PREFIX"
+    # Framework projects use clang from the Xcode toolchain, whereas GSWeather
+    # is an Xcode project and Theos invokes xcodebuild/xcpretty through PREFIX.
+    # An empty prefix preserves the host tools for that project type.
+    if [[ "$name" == "GSWeather" ]]; then
+        prefix_arg="PREFIX="
+    fi
     echo "== Build $name for RootHide =="
     make -C "$directory" clean || true
     make -C "$directory" package \
         DEVELOPER_DIR="$DEVELOPER_DIR" \
         THEOS_PLATFORM_SDK_ROOT="$DEVELOPER_DIR" \
-        PREFIX="$XCODE_TOOLCHAIN_PREFIX" \
+        "$prefix_arg" \
         THEOS_PACKAGE_SCHEME=roothide \
         ROOTHIDE=1 ROOTLESS=0 FINALPACKAGE=1 \
         "$install_var=/Library/Frameworks" \
