@@ -20,12 +20,14 @@ xcrun --sdk iphoneos --show-sdk-path
 echo "== Install private-framework stubs =="
 SDK_REPO="$DEPS_DIR/theos-sdks"
 git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git "$SDK_REPO"
-git -C "$SDK_REPO" sparse-checkout set iPhoneOS15.6.sdk
-rm -rf "$THEOS/sdks/iPhoneOS15.6.sdk" "$PRIVATE_SDK"
+git -C "$SDK_REPO" sparse-checkout set iPhoneOS15.6.sdk iPhoneOS16.5.sdk
+rm -rf "$THEOS/sdks/iPhoneOS15.6.sdk" "$THEOS/sdks/iPhoneOS16.5.sdk" "$PRIVATE_SDK"
 mkdir -p "$THEOS/sdks"
-# Theos discovers its SDK through $THEOS/sdks; private stubs are retained in
-# parallel for the SpringBoard interfaces absent from the public SDK.
+# Dodo targets iOS 15 while current GSCore requires iPhoneOS 16.5. Theos
+# discovers both public SDKs through $THEOS/sdks; 15.6 private stubs are kept
+# in parallel for the SpringBoard interfaces absent from the public SDK.
 cp -R "$SDK_REPO/iPhoneOS15.6.sdk" "$THEOS/sdks/iPhoneOS15.6.sdk"
+cp -R "$SDK_REPO/iPhoneOS16.5.sdk" "$THEOS/sdks/iPhoneOS16.5.sdk"
 cp -R "$SDK_REPO/iPhoneOS15.6.sdk" "$PRIVATE_SDK"
 find "$PRIVATE_SDK" -path '*SpringBoard.framework*' -print | head
 
