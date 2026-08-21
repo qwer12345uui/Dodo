@@ -159,6 +159,7 @@ build_xcode_framework() {
     make -C "$directory" package \
         DEVELOPER_DIR="$DEVELOPER_DIR" \
         THEOS_PLATFORM_SDK_ROOT="$DEVELOPER_DIR" \
+        TARGET=iphone:clang:latest:14.5 \
         "$prefix_arg" \
         THEOS_PACKAGE_SCHEME=roothide \
         ROOTHIDE=1 ROOTLESS=0 FINALPACKAGE=1 \
