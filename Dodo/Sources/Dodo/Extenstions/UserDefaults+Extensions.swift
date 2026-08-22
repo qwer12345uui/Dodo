@@ -22,12 +22,12 @@ extension UserDefaults {
         return alarm
     }
     
-//    func weather(forKey key: String) -> WeatherModel? {
-//        guard let weatherData = value(forKey: key) as? Data,
-//              let weather = try? JSONDecoder().decode(WeatherModel.self, from: weatherData)
-//        else { return nil }
-//        return weather
-//    }
+    func weather(forKey key: String) -> WeatherModel? {
+        guard let weatherData = value(forKey: key) as? Data,
+              let weather = try? JSONDecoder().decode(WeatherModel.self, from: weatherData)
+        else { return nil }
+        return weather
+    }
     
     func set(timer: AlarmTimerManager.Timer?, forKey key: String) {
         let data = try? JSONEncoder().encode(timer)
@@ -39,8 +39,8 @@ extension UserDefaults {
         setValue(data, forKey: key)
     }
     
-//    func set(weather: WeatherModel?, forKey key: String) {
-//        let data = try? JSONEncoder().encode(weather)
-//        setValue(data, forKey: key)
-//    }
+    func set(weather: WeatherModel?, forKey key: String) {
+        let data = try? JSONEncoder().encode(weather)
+        setValue(data, forKey: key)
+    }
 }
