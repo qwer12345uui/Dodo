@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GSWeather
 
 extension UserDefaults {
     func timer(forKey key: String) -> AlarmTimerManager.Timer? {
